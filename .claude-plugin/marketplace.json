@@ -1,0 +1,12 @@
+{
+  "name": "frankenskills",
+  "owner": { "name": "hesedcasa" },
+  "plugins": [
+    {
+      "name": "frankenskills",
+      "description": "Five lifecycle skills for coding agents: spec, plan, build, test, review.",
+      "version": "0.1.0",
+      "source": "./"
+    }
+  ]
+}
