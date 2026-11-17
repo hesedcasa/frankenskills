@@ -12,3 +12,16 @@ REPOS_DIR = CACHE_DIR / "repos"
 RESULTS_DIR = EVALS_DIR / "results"
 
 SKILL_NAMES = ("spec", "plan", "build", "test", "review")
+
+
+class UsageLimitError(RuntimeError):
+    """The account hit a usage or rate limit; results from here on are not valid."""
+
+
+LIMIT_PATTERNS = ("hit your", "usage limit", "rate limit", "rate_limit", "overloaded")
+
+
+def check_limit(text: str) -> None:
+    low = (text or "").lower()[:500]
+    if "overloaded" in low or ("limit" in low and any(p in low for p in LIMIT_PATTERNS)):
+        raise UsageLimitError(text[:300])

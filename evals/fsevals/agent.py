@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import SKILL_NAMES, SKILLS_DIR
+from . import SKILL_NAMES, SKILLS_DIR, check_limit
 
 ARMS = ("baseline", "skill", "skill-implicit")
 
@@ -131,8 +131,9 @@ def run_agent(
             res.cost_usd = float(ev.get("total_cost_usd") or 0)
             res.num_turns = int(ev.get("num_turns") or 0)
             if ev.get("is_error") or ev.get("subtype", "success") != "success":
+                check_limit(res.text)
                 res.is_error = True
-                res.error = res.error or str(ev.get("subtype"))
+                res.error = res.error or f"{ev.get('subtype')}: {res.text[:300]}"
     # Every loaded skill (slash command or Skill tool) injects its body with this marker.
     res.skills_invoked += re.findall(r"Base directory for this skill: \S*?/\.claude/skills/(\w[\w-]*)", out)
     res.skills_invoked = sorted(set(res.skills_invoked))

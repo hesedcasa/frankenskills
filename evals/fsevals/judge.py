@@ -7,6 +7,8 @@ import re
 import subprocess
 import tempfile
 
+from . import UsageLimitError, check_limit
+
 JUDGE_SYSTEM = (
     "You are a strict, careful evaluator. Judge only from the material given. "
     "Reply with a single JSON object and nothing else."
@@ -24,8 +26,14 @@ def _call(prompt: str, model: str | None, system: str, timeout_s: int = 600) -> 
             proc = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True,
                                   timeout=timeout_s, stdin=subprocess.DEVNULL)
             try:
-                return json.loads(proc.stdout).get("result") or ""
+                data = json.loads(proc.stdout)
             except json.JSONDecodeError:
+                data = None
+            if data is not None:
+                if data.get("is_error"):
+                    check_limit(data.get("result") or "")
+                return data.get("result") or ""
+            else:
                 if attempt == 2:
                     raise RuntimeError(f"judge call failed: {proc.stderr[-500:]}")
     return ""
@@ -50,6 +58,8 @@ def judge(prompt: str, model: str | None = None, retries: int = 2) -> dict:
     for _ in range(retries + 1):
         try:
             return extract_json(_call(prompt, model, JUDGE_SYSTEM))
+        except UsageLimitError:
+            raise
         except (ValueError, RuntimeError) as e:
             last = e
     return {"_judge_error": str(last)}

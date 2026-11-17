@@ -12,12 +12,13 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import threading
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from . import RESULTS_DIR
+from . import RESULTS_DIR, UsageLimitError
 from .agent import ARMS
 from .tasks import Ctx, all_tasks
 
@@ -65,14 +66,21 @@ def cmd_run(args) -> None:
     print(f"{task.name}: {len(insts)} instances x {len(arms)} arms x {args.reps} reps "
           f"= {len(jobs)} jobs to run -> {run_dir}")
 
+    stop = threading.Event()
+
     def one(inst, arm, rep):
         iid = task.instance_id(inst)
         slug = f"{iid}__{arm}__{rep}".replace("/", "_").replace(":", "_")
         ws = run_dir / "workspaces" / slug
         t0 = time.time()
         rec = {"task": task.name, "skill": task.skill, "instance_id": iid, "arm": arm, "rep": rep}
+        if stop.is_set():
+            return rec | {"crashed": True, "error": "skipped: usage limit hit earlier in run"}
         try:
             rec |= task.run(inst, arm, ws, ctx, run_dir / "transcripts" / f"{slug}.jsonl")
+        except UsageLimitError as e:
+            stop.set()
+            rec |= {"crashed": True, "error": f"usage limit: {e}"}
         except Exception as e:  # keep going; record the crash
             rec |= {"crashed": True, "error": f"{e}\n{traceback.format_exc()[-1500:]}"}
         rec["wall_s"] = round(time.time() - t0, 1)
@@ -91,6 +99,10 @@ def cmd_run(args) -> None:
                   f"{task.primary}={head} cost=${rec.get('cost_usd', 0):.2f}")
     from .report import report
 
+    if stop.is_set():
+        print("STOPPED: usage limit reached. Rerun the same command with --out "
+              f"{run_dir} after the limit resets; finished records are kept.")
+        raise SystemExit(3)
     print(report(run_dir))
 
 
