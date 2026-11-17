@@ -38,6 +38,10 @@ def _converse(conv: Conversation, first_msg: str, hidden_spec: str, ctx: Ctx) ->
         rounds.append({"agent": r.text, "classification": cls})
         if not cls.get("waiting_on_user"):
             break
+        # Asking only for sign-off means the spec phase is over. Stop here so that
+        # approval doesn't carry the agent on into planning and building.
+        if cls.get("requests_approval") and not cls.get("asks_questions"):
+            break
         msg = simulated_user_reply(hidden_spec, r.text, ctx.user_model)
         rounds[-1]["user_reply"] = msg
     return rounds

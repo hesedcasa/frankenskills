@@ -81,6 +81,20 @@ All sources are public GitHub repositories pinned to a commit in `fsevals/fetch.
 
 The datasets are downloaded into `evals/.cache/`, which is git-ignored. They are not redistributed here.
 
+## Validation status
+
+Oracle checks (`python -m fsevals.selfcheck`), run when the suite was built:
+
+| Grader | Oracle | Result |
+|---|---|---|
+| `spec.clarify` | HumanEval reference solutions vs HumanEvalComm cases | 163/164 pass (HumanEval/32 excluded: its cases are a script template) |
+| `test.mutation` | reference passes `check()`; mutants killable by `check()` | min 1, mean 8.2 killable mutants per problem |
+| `build.devbench` | reference implementation / empty workspace | 100% / 0% on every project (network-only tests excluded) |
+| `test.tdd` | upstream test patch as the "agent's test" | 4/4 fail-to-pass |
+| `review.swe` | candidate patches apply to the base commit | 4/4 |
+
+Every task has also completed end to end with the agent in both arms (1–2 instances each). Those smoke runs only prove the pipeline works. They are far too small to say anything about the skills.
+
 ## Known limits
 
 - **Simulated users and judges are models.** HumanEvalComm and Ambig-SWE both use simulated users too. Keep `--judge-model` fixed across runs you compare, and spot-check `records.jsonl`, which stores every conversation and judge rationale.
