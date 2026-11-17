@@ -46,7 +46,8 @@ class MutationTests(Task):
     metrics = {
         "mutation_score": (True, True),
         "suite_valid": (True, True),
-        "n_tests": (True, False),
+        "n_tests": (None, False),
+        "n_mutants": (None, False),
     }
 
     def run(self, inst, arm, ws, ctx, transcript):
@@ -83,8 +84,8 @@ class MutationTests(Task):
         if not valid:
             return out | {"mutation_score": 0.0}
 
-        live = [m for m in mutants(solution, limit=40, seed=zlib.crc32(inst["id"].encode()))
-                if not run_check(m, inst["test"], inst["entry_point"])][:15]
+        live = [m for m in mutants(solution, limit=60, seed=zlib.crc32(inst["id"].encode()))
+                if not run_check(m, inst["test"], inst["entry_point"])]
         killed = 0
         for m in live:
             (grade / "solution.py").write_text(m)

@@ -45,8 +45,8 @@ class DevBenchBuild(Task):
         "unit_pass_rate": (True, True),
         "acceptance_pass_rate": (True, True),
         "test_first": (True, True),
-        "agent_test_files": (True, False),
-        "commits": (True, False),
+        "agent_test_files": (None, False),
+        "commits": (None, False),
     }
 
     def run(self, inst, arm, ws, ctx, transcript):

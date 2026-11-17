@@ -50,7 +50,7 @@ def report(run_dir: Path, write: bool = False) -> str:
 
     if "baseline" in arms and len(arms) > 1:
         lines += ["", "Paired difference vs baseline (same instances; ▲ better, ▼ worse, "
-                  "· CI includes 0):", "", "| metric | " + " | ".join(arms[1:]) + " |",
+                  "· CI includes 0, Δ neutral metric):", "", "| metric | " + " | ".join(arms[1:]) + " |",
                   "|---|" + "---|" * (len(arms) - 1)]
         for m, (hib, pct) in metrics.items():
             row = [m]
@@ -60,7 +60,9 @@ def report(run_dir: Path, write: bool = False) -> str:
                     row.append("—")
                     continue
                 mark = "·"
-                if d["lo"] is not None and (d["lo"] > 0 or d["hi"] < 0):
+                if hib is None:
+                    mark = "Δ"
+                elif d["lo"] is not None and (d["lo"] > 0 or d["hi"] < 0):
                     mark = "▲" if (d["mean"] > 0) == hib else "▼"
                 row.append(f"{mark} {fmt(d['mean'], d['lo'], d['hi'], pct=pct)} (n={d['n']})")
             lines.append("| " + " | ".join(row) + " |")

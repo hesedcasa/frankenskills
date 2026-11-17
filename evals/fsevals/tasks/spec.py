@@ -56,7 +56,7 @@ class Clarify(Task):
         "asked_when_clear": (False, True),
         "question_quality": (True, False),
         "code_before_approval": (False, True),
-        "rounds": (False, False),
+        "rounds": (None, False),
     }
 
     def stratify(self, rows, n):
@@ -134,7 +134,7 @@ class SweSpec(Task):
         "spec_written": (True, True),
         "testable_criteria": (True, True),
         "touched_code": (False, True),
-        "rounds": (False, False),
+        "rounds": (None, False),
     }
 
     def run(self, inst, arm, ws, ctx, transcript):

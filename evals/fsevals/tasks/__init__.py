@@ -26,7 +26,7 @@ class Task:
     skill = ""         # which skill this evaluates
     data_file = ""     # JSONL under .cache/data
     description = ""
-    # metric name -> (higher_is_better, is_rate)
+    # metric name -> (higher_is_better or None for neutral, is_rate)
     metrics: dict[str, tuple[bool, bool]] = {}
     primary = ""       # headline metric
 
