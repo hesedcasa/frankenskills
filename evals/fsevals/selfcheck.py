@@ -16,7 +16,7 @@ from .devbench import env_for, run_hidden_tests
 from .humaneval import run_cases, run_check
 from .mutate import mutants
 from .tasks import all_tasks
-from .tasks.test import _test_files
+from .tasks.test import _test_files, grade_repro
 from .workspace import (apply_patch, changed_files, commit_all, run_pytest, snapshot_repo,
                         uv_venv)
 
@@ -71,15 +71,11 @@ def check_tdd(n: int) -> None:
             ws = snapshot_repo(inst["repo"], inst["base_commit"], Path(tmp) / "ws")
             apply_patch(ws, inst["test_patch"])  # the upstream test is a perfect answer
             tests = _test_files(changed_files(ws))
-            env = {"PYTHONPATH": str(ws)}
-            before, _, _ = run_pytest(py, tests, ws, env=env)
-            apply_patch(ws, inst["gold_patch"])
-            after, out, _ = run_pytest(py, tests, ws, env=env)
-            ok = before == 1 and after == 0
+            g = grade_repro(py, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
+            ok = bool(g["fail_to_pass"])
             good += ok
-            print(f"test.tdd {inst['instance_id']}: upstream test before={before} after={after}"
-                  f" -> {'fail-to-pass' if ok else 'NOT fail-to-pass'}"
-                  + ("" if ok else f"\n{out[-400:]}"))
+            print(f"test.tdd {inst['instance_id']}: upstream test "
+                  f"{'fail-to-pass' if ok else 'NOT fail-to-pass ' + str(g.get('after'))}")
     print(f"test.tdd grader: {good}/{len(insts)} upstream tests are fail-to-pass")
 
 

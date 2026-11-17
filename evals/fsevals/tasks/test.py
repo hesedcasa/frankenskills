@@ -15,6 +15,7 @@ test.tdd       TDD-Bench Verified (Ahmed et al., IBM 2024): real SWE-bench Verif
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import zlib
 from pathlib import Path
@@ -140,13 +141,76 @@ class TddRepro(Task):
             git("checkout", "HEAD", "--", *[f for f in source if (ws / f).exists()], cwd=ws,
                 check=False)
         run_env = {"PYTHONPATH": str(ws)}
-        code_before, out_before, _ = run_pytest(python, tests, ws, timeout=900, env=run_env)
-        ok, msg = apply_patch(ws, inst["gold_patch"])
-        if not ok:
-            return out | {"fail_to_pass": None, "error": f"gold patch did not apply: {msg[-500:]}"}
-        code_after, out_after, _ = run_pytest(python, tests, ws, timeout=900, env=run_env)
-        fails_before = code_before == 1  # 1 = tests ran and some failed (not a usage error)
-        passes_after = code_after == 0
-        return out | {"fail_to_pass": fails_before and passes_after,
-                      "fails_before": fails_before, "passes_after": passes_after,
-                      "before_tail": out_before[-1200:], "after_tail": out_after[-1200:]}
+        g = grade_repro(python, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
+        return out | g
+
+
+def grade_repro(python: Path, ws: Path, tests: list[str], gold_patch: str, env: dict) -> dict:
+    """TDD-Bench fail-to-pass on the test functions added or edited in `tests`.
+
+    Only those functions count: the upstream fix may legitimately break other
+    pre-existing tests in the same file.
+    """
+    touched = _touched_tests(ws, tests)
+    new_ids = {i for i in _collect(python, tests, ws, env) if i.split("[")[0] in touched}
+    before, out_before = _outcomes(python, tests, ws, env)
+    ok, msg = apply_patch(ws, gold_patch)
+    if not ok:
+        return {"fail_to_pass": None, "error": f"gold patch did not apply: {msg[-500:]}"}
+    after, out_after = _outcomes(python, tests, ws, env)
+    fails_before = any(before.get(i) in ("FAILED", "ERROR") for i in new_ids)
+    passes_after = bool(new_ids) and all(after.get(i) == "PASSED" for i in new_ids)
+    return {"fail_to_pass": fails_before and passes_after, "fails_before": fails_before,
+            "passes_after": passes_after, "new_tests": sorted(new_ids),
+            "before": {i: before.get(i) for i in new_ids},
+            "after": {i: after.get(i) for i in new_ids},
+            "before_tail": out_before[-1200:], "after_tail": out_after[-1200:]}
+
+
+_RESULT = re.compile(r"^(PASSED|FAILED|ERROR|XFAIL|XPASS|SKIPPED) (\S+)", re.M)
+
+
+def _outcomes(python: Path, tests: list[str], ws: Path, env: dict) -> tuple[dict, str]:
+    """Per-test outcome (PASSED/FAILED/ERROR/...) keyed by pytest node id."""
+    _, out, _ = run_pytest(python, ["-rA", *tests], ws, timeout=900, env=env)
+    return {node: status for status, node in _RESULT.findall(out)}, out
+
+
+def _collect(python: Path, tests: list[str], ws: Path, env: dict) -> set[str]:
+    _, out, _ = run_pytest(python, ["--collect-only", *tests], ws, timeout=600, env=env)
+    return {l.strip() for l in out.splitlines() if "::" in l and not l.startswith(" ")}
+
+
+def _touched_tests(ws: Path, tests: list[str]) -> set[str]:
+    """Node-id prefixes (file::func or file::Class::func) of test functions with added or
+    changed lines relative to the base commit."""
+    import ast
+
+    out = set()
+    for t in tests:
+        diff = git("diff", "-U0", "HEAD", "--", t, cwd=ws, check=False)
+        tracked = git("cat-file", "-e", f"HEAD:{t}", cwd=ws, check=False) == ""
+        changed = set()
+        for m in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", diff, re.M):
+            start, n = int(m.group(1)), int(m.group(2) or 1)
+            # A pure deletion (n == 0) sits between lines start and start + 1,
+            # e.g. removing an @XFAIL decorator above a test.
+            changed.update(range(start, start + n) if n else (start, start + 1))
+        try:
+            tree = ast.parse((ws / t).read_text())
+        except SyntaxError:
+            continue
+
+        def visit(nodes, prefix):
+            for node in nodes:
+                if isinstance(node, ast.ClassDef):
+                    visit(node.body, f"{prefix}::{node.name}")
+                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and \
+                        node.name.startswith("test"):
+                    first = min([d.lineno for d in node.decorator_list] + [node.lineno])
+                    lines = range(first, (node.end_lineno or node.lineno) + 1)
+                    if not tracked or changed.intersection(lines):
+                        out.add(f"{prefix}::{node.name}")
+
+        visit(tree.body, t)
+    return out
