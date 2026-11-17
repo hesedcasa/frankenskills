@@ -85,6 +85,7 @@ The datasets are downloaded into `evals/.cache/`, which is git-ignored. They are
 
 - **Simulated users and judges are models.** HumanEvalComm and Ambig-SWE both use simulated users too. Keep `--judge-model` fixed across runs you compare, and spot-check `records.jsonl`, which stores every conversation and judge rationale.
 - **Local execution only, no Docker.** `test.tdd` runs the sympy subset (67 of 449) because sympy needs only `mpmath`. Other repositories need the official TDD-Bench Docker harness (`tddbench`). `review.swe` does not need execution, since labels are precomputed.
+- **DevBench unit tests sometimes import helpers the docs never name** (e.g. lice's tests import `valid_year`). One missing name fails the whole unit file at import, for both arms alike. Read `unit_pass_rate` with that in mind; `acceptance_pass_rate` tests only documented, black-box behavior.
 - **DevBench is small** (9 Python projects here). TextCNN is excluded by default: it needs torch and Hugging Face downloads at test time. Use `--reps` for tighter estimates.
 - **Single candidate model for review.** Patches come from one leaderboard run. To diversify, add another submission's `all_preds.jsonl` and per-instance labels in `fetch.py`.
 - **Excel truncation.** Ambig-SWE ships as `.xlsx`, which truncates a few very long `PASS_TO_PASS` lists. Those lists are unused by the graders.
