@@ -27,6 +27,9 @@ from ..workspace import (apply_patch, changed_files, fresh_dir, git, init_repo, 
                          snapshot_repo, uv_venv)
 from . import Task
 
+# Older sympy versions use the legacy `py` library, which newer pytest only shims.
+SYMPY_DEPS = ["mpmath==1.3.0", "pytest<8", "py==1.11.0"]
+
 
 def _env(python: Path, extra: dict | None = None) -> dict:
     return {"PATH": f"{python.parent}:{os.environ['PATH']}",
@@ -116,7 +119,7 @@ class TddRepro(Task):
         return [r for r in rows if r["repo"] in self.repos]
 
     def run(self, inst, arm, ws, ctx, transcript):
-        python = uv_venv("sympy", "3.9", ["mpmath==1.3.0", "pytest<8"])
+        python = uv_venv("sympy", "3.9", SYMPY_DEPS)
         snapshot_repo(inst["repo"], inst["base_commit"], ws)
         if arm != "baseline":
             install_skills(ws)
