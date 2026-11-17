@@ -16,11 +16,11 @@ Measured evals for the five skills, built on public research datasets. Each eval
 
 | Arm | Workspace | Prompt |
 |---|---|---|
-| `baseline` | no skills; slash commands and skills disabled | the task |
+| `baseline` | stock Claude Code (its bundled skills included), frankenskills not installed | the task |
 | `skill` | all five skills in `.claude/skills/` | `/<skill> ` + the task |
 | `skill-implicit` | all five skills installed | the task (tests whether the skill's description triggers it) |
 
-Every arm runs with project-only settings, no MCP servers, and **no web access** (several datasets are public and their answers are online).
+The arms differ only in whether frankenskills is installed. Every arm runs with project-only settings (no user plugins), no MCP servers, and **no web access** (several datasets are public and their answers are online).
 
 ## Quick start
 

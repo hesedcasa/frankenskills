@@ -1,7 +1,8 @@
 """Run Claude Code headlessly in a sandbox workspace and capture what it did.
 
-Arms:
-  baseline        no skills installed, skills/slash commands disabled
+Arms (identical Claude Code setup, including its bundled skills; the only
+difference is whether the five frankenskills are installed in the workspace):
+  baseline        frankenskills not installed
   skill           all five frankenskills installed in the workspace, prompt
                   starts with /<skill> (measures the skill's content)
   skill-implicit  skills installed, plain prompt (measures whether the
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -79,8 +81,6 @@ def run_agent(
         "--allowedTools", *ALLOWED_TOOLS,
         "--disallowedTools", *DISALLOWED_TOOLS,
     ]
-    if arm == "baseline":
-        cmd.append("--disable-slash-commands")
     if model:
         cmd += ["--model", model]
     if resume:
@@ -119,6 +119,12 @@ def run_agent(
                         res.skills_invoked.append(str(call["input"].get("skill", "")))
         elif ev.get("type") == "system" and ev.get("session_id"):
             res.session_id = res.session_id or ev["session_id"]
+            if ev.get("subtype") == "init":
+                # Slash-command expansions are not emitted in the stream, so credit a
+                # leading /<skill> when that skill was actually loaded in this session.
+                m = re.match(r"/([\w-]+)\s", prompt)
+                if m and m.group(1) in (ev.get("skills") or []):
+                    res.skills_invoked.append(m.group(1))
         elif ev.get("type") == "result":
             res.text = ev.get("result") or ""
             res.session_id = ev.get("session_id") or res.session_id
@@ -127,11 +133,8 @@ def run_agent(
             if ev.get("is_error") or ev.get("subtype", "success") != "success":
                 res.is_error = True
                 res.error = res.error or str(ev.get("subtype"))
-    # A slash-invoked skill shows up as an injected skill message, not a tool call.
-    if arm == "skill":
-        for name in SKILL_NAMES:
-            if f'"/{name}' in out or f"<command-name>/{name}" in out:
-                res.skills_invoked.append(name)
+    # Every loaded skill (slash command or Skill tool) injects its body with this marker.
+    res.skills_invoked += re.findall(r"Base directory for this skill: \S*?/\.claude/skills/(\w[\w-]*)", out)
     res.skills_invoked = sorted(set(res.skills_invoked))
     return res
 

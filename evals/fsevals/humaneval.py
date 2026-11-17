@@ -22,10 +22,18 @@ cases = ast.literal_eval(open(cases_src).read())
 ok = 0
 for c in cases:
     try:
-        got = eval(f"__fn__({c['input']})", dict(ns, __fn__=fn))
-        exp = eval(c["output"], dict(ns))
-        if (got == exp) if c.get("relation", "==") == "==" else bool(eval(f"got {c['relation']} exp")):
-            ok += 1
+        rel = c.get("relation", "==")
+        if rel == "==":
+            got = eval(f"__fn__({c['input']})", dict(ns, __fn__=fn))
+            try:
+                passed = got == eval(c["output"], dict(ns))
+            except Exception:
+                passed = False
+            # HumanEvalComm stores string outputs unquoted ('xyzyx', '010010').
+            passed = passed or (isinstance(got, str) and got == c["output"])
+        else:  # HumanEvalComm stores a full boolean expression over `candidate`
+            passed = bool(eval(rel, dict(ns, candidate=fn)))
+        ok += passed
     except Exception:
         pass
 print(json.dumps({"passed": ok, "total": len(cases), "found_function": fn is not None}))

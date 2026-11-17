@@ -49,6 +49,11 @@ class Clarify(Task):
     data_file = "spec_clarify"
     description = "HumanEvalComm: ask when it matters, don't when it doesn't, then pass the tests"
     primary = "pass_all"
+    # HumanEval/32's HumanEvalComm cases are a script template, not checkable here.
+    excluded = {"HumanEval/32"}
+
+    def filter(self, rows):
+        return [r for r in rows if r["name"] not in self.excluded]
     metrics = {
         "pass_all": (True, True),
         "test_pass_rate": (True, True),
