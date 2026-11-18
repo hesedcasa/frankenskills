@@ -27,7 +27,7 @@ If the user hasn't asked for a spec conversation and the ask is smallish, offer 
 
 ## Step 1: Look before you ask
 
-Finding **facts** is your job. Making **decisions** is the user's.
+Finding **facts** is your job. Making **decisions** is the user's. The exception is facts that live only with the user, which you can't look up: their environment and versions, the exact reproduction and inputs they used, what they observed (output, errors, screenshots), and the examples they have in mind. When the request leaves any of these out, ask for them early, in one question. They are usually what a vague report is missing.
 
 - Read whatever they pointed at (issues, docs, earlier conversation) and the code it connects to. Keep reading until you can explain how the relevant parts work today and what the change would touch.
 - Read `GLOSSARY.md`/`CONTEXT.md`, ADRs (`docs/adr/`), `CLAUDE.md`/`AGENTS.md`, `CONTRIBUTING.md`, existing `SPEC*.md` or `specs/` if they exist. Use the project's vocabulary.
