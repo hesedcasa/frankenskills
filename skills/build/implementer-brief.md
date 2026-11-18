@@ -29,7 +29,10 @@ ask now, before writing code.
 
 ## Your job
 1. Write the failing test the task names. Run it. Confirm it fails for the
-   expected reason, and keep that output.
+   expected reason, and keep that output. Exception: if the task is docs,
+   pure configuration, or generated code, or a test is impractical, name the
+   `test` skill exception that applies and run the closest executable check
+   instead (build, lint, a script that exercises it). Keep that output.
 2. Write the minimal code to pass it. Nothing the task didn't ask for.
 3. Run the focused test while iterating.
 4. Self-review your diff (below) and fix what you find.
@@ -66,6 +69,7 @@ Bad work is worse than no work. Escalating is never penalized.
 Write the full report to <REPORT_FILE>:
 - What you implemented; files changed
 - RED evidence: command + failing output + why that failure was expected
+  (or: the exception used, and the check that replaced the test)
 - GREEN evidence: command + passing output; full-suite result
 - Self-review findings; noticed-not-touched; concerns
 

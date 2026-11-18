@@ -42,7 +42,7 @@ Task 2: Ruling: plan says return Buffer, spec says string — used string (spec 
 Task 2: complete (d4e5f6a..9f8e7d6, tests: pnpm test → 219/219)
 ```
 
-**On start or resume:** if the ledger exists and names this plan, every `Task N: complete` line is done: don't redo it. Trust the ledger and `git log` over your recollection. Resume at the first task without a completion line.
+**On start or resume:** if the ledger exists and names this plan, a `Task N: complete` line counts only if it is committed: `git diff HEAD -- <ledger>` doesn't show it as an uncommitted addition, and the commit that added it exists in `git log`. Don't redo those tasks. An uncommitted completion line means the task's commit never happened: delete the line, check the task's changes against its tests, then commit them with the line again. Trust the ledger and `git log` over your recollection. Resume at the first task without a committed completion line.
 
 **Pre-flight scan (before Task 1):** for every task that consumes what an earlier task produces, compare the two Interfaces blocks. Record each pair and any conflict, and rule on conflicts with the spec as the binding authority.
 
@@ -68,7 +68,7 @@ Re-read the task's text from the plan file now, even if you remember it. You rem
 ### 3.2 Work the steps, test first
 Follow the plan's steps in order under the `test` skill:
 
-1. **RED** — write the failing test the plan names. Run it. Watch it fail **for the expected reason**. A test that passes before the code exists is a finding about the test.
+1. **RED** — write the failing test the plan names. Run it. Watch it fail **for the expected reason**. A test that passes before the code exists is a finding about the test. (For a declared `test` exception, run the closest executable check instead and ledger it.)
 2. **GREEN** — write the minimum code that makes it pass. No speculative options, parameters, or "while I'm here" changes.
 3. **Run the focused test** while iterating; the full suite once at the end of the task.
 4. **Refactor** only with green tests, and only within the task's files.
@@ -179,7 +179,7 @@ When every task is complete:
 
 - [ ] Clean baseline, isolated branch, baseline suite result recorded
 - [ ] Ledger exists, names the plan, has one completion line per finished task
-- [ ] Every task: failing test seen, minimal code, focused + full tests green, committed alone
+- [ ] Every task: failing test seen (or a declared exception ledgered with its replacement check), minimal code, focused + full tests green, committed alone
 - [ ] Every deviation has a ruling; every out-of-scope observation listed
 - [ ] Success criteria exercised in the running system
 - [ ] Whole-branch `review` done; Critical/Important fixed test-first

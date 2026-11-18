@@ -159,11 +159,12 @@ class SweSpec(Task):
         rounds = _converse(conv, prompt_for_arm(arm, self.skill, task), inst["original_issue"], ctx)
 
         changed = changed_files(ws)
-        md = [f for f in changed if f.lower().endswith(".md")]
+        # Deleted files are "changed" too; only an existing file can be the spec.
+        md = [f for f in changed if f.lower().endswith(".md") and (ws / f).is_file()]
         specs = [f for f in md if Path(f).name == "SPEC.md"]
         # Prefer a SPEC.md this run wrote: an unchanged root SPEC.md from the base
         # snapshot belongs to someone else.
-        pick = "SPEC.md" if "SPEC.md" in changed else (specs[0] if specs else (md[0] if md else None))
+        pick = "SPEC.md" if "SPEC.md" in md else (specs[0] if specs else (md[0] if md else None))
         spec_path = ws / pick if pick else None
         spec_text = spec_path.read_text(errors="replace") if spec_path else ""
         convo = "\n\n".join(f"AGENT: {r['agent'][-2500:]}\nUSER: {r.get('user_reply', '')}"
