@@ -189,6 +189,9 @@ def grade_repro(python: Path, ws: Path, tests: list[str], gold_patch: str, env: 
     ids_after = _collect(python, tests, ws, env)
     after, out_after = _outcomes(python, tests, ws, env)
     new_ids = {i for i in ids_before | ids_after if i.split("[")[0] in touched}
+    # A test marked expected-failure or skipped after the fix proves nothing either way
+    # (upstream sometimes adds @XFAIL tests alongside the real ones), so it is not counted.
+    new_ids = {i for i in new_ids if after.get(i) not in ("XFAIL", "SKIPPED")}
     fails_before = any(before.get(i) in ("FAILED", "ERROR") or i.split("::")[0] in broken_before
                        for i in new_ids)
     passes_after = bool(new_ids) and all(after.get(i) == "PASSED" for i in new_ids)

@@ -13,6 +13,7 @@ import argparse
 import ast
 import gzip
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -94,12 +95,31 @@ def _write(name: str, rows: list[dict]) -> None:
     print(f"wrote {path.relative_to(DATA_DIR.parent.parent)} ({len(rows)} rows)")
 
 
+_NON_ASCII = re.compile(r"[^\x00-\x7f]+")
+
+
+def _demojibake(v):
+    """Undo the xlsx's mojibake: its non-ASCII text is UTF-8 bytes decoded as Mac Roman
+    (e.g. "‚Äô" for "’", "\uf8ffùüô" for "𝟙"), which corrupts patches that touch such
+    lines. A run is decoded back only if it is valid UTF-8; real text never is."""
+    if not isinstance(v, str):
+        return v
+
+    def fix(m):
+        try:
+            return m.group(0).encode("mac_roman").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return m.group(0)
+
+    return _NON_ASCII.sub(fix, v)
+
+
 def _ambig_frame():
     import pandas as pd
 
     src = fetch_source("ambig_swe")
     df = pd.read_excel(src / "LLM_underspecificity_annotation.xlsx")
-    return df.fillna("")
+    return df.fillna("").map(_demojibake)
 
 
 def _as_list(v) -> list:
