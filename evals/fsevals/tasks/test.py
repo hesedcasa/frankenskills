@@ -27,8 +27,16 @@ from ..workspace import (apply_patch, changed_files, fresh_dir, git, init_repo, 
                          snapshot_repo, uv_venv)
 from . import Task
 
-# Older sympy versions use the legacy `py` library, which newer pytest only shims.
+# sympy 1.1+ test helpers need the legacy `py` library (newer pytest only shims it);
+# sympy 1.0's helpers break when it is installed. Pick the environment by version.
 SYMPY_DEPS = ["mpmath==1.3.0", "pytest<8", "py==1.11.0"]
+SYMPY_1_0_DEPS = ["mpmath==1.3.0", "pytest<8"]
+
+
+def sympy_env(version: str) -> Path:
+    if version == "1.0":
+        return uv_venv("sympy-1.0", "3.9", SYMPY_1_0_DEPS)
+    return uv_venv("sympy", "3.9", SYMPY_DEPS)
 
 
 def _env(python: Path, extra: dict | None = None) -> dict:
@@ -119,7 +127,7 @@ class TddRepro(Task):
         return [r for r in rows if r["repo"] in self.repos]
 
     def run(self, inst, arm, ws, ctx, transcript):
-        python = uv_venv("sympy", "3.9", SYMPY_DEPS)
+        python = sympy_env(inst["version"])
         snapshot_repo(inst["repo"], inst["base_commit"], ws)
         if arm != "baseline":
             install_skills(ws)

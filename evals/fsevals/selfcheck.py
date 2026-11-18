@@ -16,7 +16,7 @@ from .devbench import env_for, run_hidden_tests
 from .humaneval import run_cases, run_check
 from .mutate import mutants
 from .tasks import all_tasks
-from .tasks.test import SYMPY_DEPS, _test_files, grade_repro
+from .tasks.test import _test_files, grade_repro, sympy_env
 from .workspace import (apply_patch, changed_files, commit_all, run_pytest, snapshot_repo,
                         uv_venv)
 
@@ -72,7 +72,6 @@ def check_devbench(n: int) -> None:
 
 def check_tdd(n: int) -> None:
     task = all_tasks()["test.tdd"]
-    py = uv_venv("sympy", "3.9", SYMPY_DEPS)
     good = 0
     insts = task.sample(n, 0)
     for inst in insts:
@@ -80,6 +79,7 @@ def check_tdd(n: int) -> None:
             ws = snapshot_repo(inst["repo"], inst["base_commit"], Path(tmp) / "ws")
             apply_patch(ws, inst["test_patch"])  # the upstream test is a perfect answer
             tests = _test_files(changed_files(ws))
+            py = sympy_env(inst["version"])
             g = grade_repro(py, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
             ok = bool(g["fail_to_pass"])
             good += ok
