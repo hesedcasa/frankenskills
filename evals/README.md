@@ -32,7 +32,7 @@ python -m fsevals.fetch                 # pinned GitHub sources -> .cache/data/*
 python -m fsevals.selfcheck             # oracle checks: graders score gold answers as correct
 python -m fsevals.cli list
 python -m fsevals.cli run test.mutation --n 20 --arms baseline,skill --workers 4
-python -m fsevals.cli report results/test.mutation/<run>
+python -m fsevals.cli report results/test.mutation/RUN_ID   # the run directory printed by `run`
 ```
 
 Useful flags for `run`: `--model` (agent under test, default `sonnet`), `--judge-model` (default `opus`), `--user-model` (simulated user, defaults to the judge), `--reps` (repeat each instance and arm), `--ids` (exact instances), `--out` (reuse a run directory to resume after a crash), `--keep-workspaces` (keep each sandbox to inspect what the agent did).

@@ -149,9 +149,16 @@ class TddRepro(Task):
         if not tests:
             return out | {"fail_to_pass": False, "fails_before": False, "passes_after": False}
         if source:  # grade the test against the original code, not the agent's fix
-            # Restore from the pre-agent revision: HEAD may hold the agent's committed fix.
-            git("checkout", base_rev(ws), "--", *[f for f in source if (ws / f).exists()], cwd=ws,
-                check=False)
+            # Reset each source file to the pre-agent revision (HEAD may hold the agent's
+            # committed fix): restore files that existed there, even if deleted since,
+            # and remove files the agent added.
+            base = base_rev(ws)
+            in_base = [f for f in source
+                       if git("cat-file", "-e", f"{base}:{f}", cwd=ws, check=False) == ""]
+            if in_base:
+                git("checkout", base, "--", *in_base, cwd=ws)
+            for f in set(source) - set(in_base):
+                (ws / f).unlink(missing_ok=True)
         run_env = {"PYTHONPATH": str(ws)}
         g = grade_repro(python, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
         return out | g
@@ -177,7 +184,8 @@ def grade_repro(python: Path, ws: Path, tests: list[str], gold_patch: str, env: 
                      if status == "ERROR" and "::" not in node}
     ok, msg = apply_patch(ws, gold_patch)
     if not ok:
-        return {"fail_to_pass": None, "error": f"gold patch did not apply: {msg[-500:]}"}
+        return {"fail_to_pass": None, "crashed": True,
+                "error": f"gold patch did not apply: {msg[-500:]}"}
     ids_after = _collect(python, tests, ws, env)
     after, out_after = _outcomes(python, tests, ws, env)
     new_ids = {i for i in ids_before | ids_after if i.split("[")[0] in touched}

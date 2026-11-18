@@ -85,8 +85,12 @@ def simulated_user_reply(hidden_spec: str, agent_message: str, model: str | None
 
 
 def classify_turn(agent_message: str, model: str | None = None) -> dict:
-    """Is the agent waiting on the user (questions/approval) or did it just proceed?"""
-    return judge(
+    """Is the agent waiting on the user (questions/approval) or did it just proceed?
+
+    Raises if the judge fails: a missing classification must never be read as
+    "not waiting", which would end the conversation early.
+    """
+    out = judge(
         "Classify this message a coding agent sent to its user.\n\n"
         f"MESSAGE:\n<<<\n{agent_message[-6000:]}\n>>>\n\n"
         'Return JSON: {"asks_questions": bool, "questions": [string], '
@@ -96,3 +100,6 @@ def classify_turn(agent_message: str, model: str | None = None) -> dict:
         "needs a reply before it can proceed.",
         model,
     )
+    if "_judge_error" in out or not isinstance(out.get("waiting_on_user"), bool):
+        raise RuntimeError(f"turn classification failed: {out.get('_judge_error', out)}")
+    return out

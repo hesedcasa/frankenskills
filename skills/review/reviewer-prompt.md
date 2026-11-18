@@ -15,9 +15,10 @@ the diff is large, review it in passes yourself and say so.
 ## The change
 Range: <BASE>..<HEAD>   (diff: `git diff <BASE>...<HEAD>`; commits:
 `git log <BASE>..<HEAD> --oneline`)  — or read the diff file: <DIFF_FILE>
-Uncommitted changes in scope: <yes/no>. If yes, also review `git diff HEAD`
-(staged and unstaged) and the untracked files listed by
-`git status --short` (lines starting with `??`).
+Uncommitted changes in scope: <yes/no>. If yes, also review `git diff --cached`
+(staged: what a commit would include) and `git diff` (unstaged) separately,
+since an unstaged edit can hide a staged one in a combined diff, plus the
+untracked files listed by `git status --short` (lines starting with `??`).
 Intent: <2–3 sentence restatement>
 Spec: <path or "none">   Plan: <path or "none">
 Author's recorded decisions (judge them, don't accept them): <ledger Ruling: lines or "none">

@@ -14,7 +14,7 @@ Judge a change on two separate axes, **did it build the right thing** (spec) and
 ## Step 1: Pin the scope
 
 - The user names the scope (PR, branch, commit range, files). Otherwise: the current branch against its merge-base with the default branch, plus uncommitted changes.
-- Resolve the fixed point and confirm the scope is non-empty before doing anything else: `git rev-parse <ref>`, `git log <ref>..HEAD --oneline`, `git diff <ref>...HEAD --stat` for committed work, and `git diff HEAD --stat` plus `git status --short` for staged, unstaged, and untracked changes. Review the union of both, and when uncommitted changes are in scope, tell each reviewer so (the reviewer prompt has a line for it). A bad ref, or a scope that is empty on both counts, fails here.
+- Resolve the fixed point and confirm the scope is non-empty before doing anything else: `git rev-parse <ref>`, `git log <ref>..HEAD --oneline`, `git diff <ref>...HEAD --stat` for committed work, and `git diff --cached --stat` (staged), `git diff --stat` (unstaged) and `git status --short` (untracked) for uncommitted changes. Review the union of both, and when uncommitted changes are in scope, tell each reviewer so (the reviewer prompt has a line for it). A bad ref, or a scope that is empty on both counts, fails here.
 - For a PR, read its description and linked issues.
 
 ## Step 2: Gather the intent

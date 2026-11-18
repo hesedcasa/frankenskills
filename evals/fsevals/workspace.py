@@ -25,10 +25,19 @@ def _lock(key: str) -> threading.Lock:
         return _locks.setdefault(key, threading.Lock())
 
 
+# Inherited from a hook or wrapper, these would point our git calls at another repo.
+_GIT_LOCATION_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+                      "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_COMMON_DIR", "GIT_NAMESPACE")
+
+
+def _clean_env() -> dict:
+    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCATION_VARS}
+
+
 def sh(cmd, cwd: Path | None = None, timeout: int = 600, env: dict | None = None,
        check: bool = False, input: str | None = None) -> tuple[int, str]:
     proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
-                          env=os.environ | GIT_ENV | (env or {}), input=input,
+                          env=_clean_env() | GIT_ENV | (env or {}), input=input,
                           shell=isinstance(cmd, str))
     out = proc.stdout + proc.stderr
     if check and proc.returncode != 0:
@@ -47,10 +56,14 @@ def fresh_dir(path: Path) -> Path:
     return path
 
 
-def init_repo(path: Path, message: str = "base") -> None:
-    """Make `path` a git repo whose only commit is its current contents."""
+def init_repo(path: Path, message: str = "base", force: bool = False) -> None:
+    """Make `path` a git repo whose only commit is its current contents.
+
+    force=True also commits files matched by .gitignore (an upstream snapshot can
+    legitimately track such files).
+    """
     git("init", "-q", "-b", "main", cwd=path)
-    git("add", "-A", cwd=path)
+    git("add", "-A", *(["--force"] if force else []), cwd=path)
     git("commit", "-q", "--allow-empty", "-m", message, cwd=path)
 
 
@@ -86,7 +99,7 @@ def snapshot_repo(repo: str, commit: str, dest: Path) -> Path:
         base = ["git", "--git-dir", str(cache / ".git"), "--work-tree", str(dest)]
         sh([*base, "read-tree", commit], env=env, check=True, timeout=3600)
         sh([*base, "checkout-index", "--all", "--force"], env=env, check=True, timeout=3600)
-    init_repo(dest, "base")
+    init_repo(dest, "base", force=True)
     return dest
 
 

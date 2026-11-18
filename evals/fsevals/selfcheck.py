@@ -22,6 +22,7 @@ from .workspace import (apply_patch, changed_files, commit_all, run_pytest, snap
 
 
 FAILURES: list[str] = []
+LIMITATIONS: list[str] = []
 
 
 def check_humaneval(n: int) -> None:
@@ -42,7 +43,9 @@ def check_humaneval(n: int) -> None:
     live_counts = []
     for he in list(sol_rows.values())[:n * 10]:
         src = he["prompt"] + he["canonical_solution"]
-        assert run_check(src, he["test"], he["entry_point"]), he["id"]
+        if not run_check(src, he["test"], he["entry_point"]):
+            FAILURES.append(f"test.mutation: canonical solution for {he['id']} fails check()")
+            continue
         live = [m for m in mutants(src, limit=40) if not run_check(m, he["test"], he["entry_point"])]
         live_counts.append(len(live))
     print(f"test.mutation grader: canonical passes check; killable mutants per problem "
@@ -66,7 +69,15 @@ def check_devbench(n: int) -> None:
                   f"unit {res.get('unit_passed')}/{res.get('unit_total')}, "
                   f"acceptance {res.get('acceptance_passed')}/{res.get('acceptance_total')}")
             for kind in ("unit", "acceptance"):
-                if res.get(f"{kind}_passed") != res.get(f"{kind}_total"):
+                if not inst["config"].get(f"{kind}_tests"):
+                    continue  # suite intentionally not configured
+                total = res.get(f"{kind}_total")
+                if not total:
+                    # Configured, but no test passes for the reference here (e.g. it needs
+                    # live network). Graded as excluded; say so rather than pass silently.
+                    LIMITATIONS.append(f"build.devbench {inst['id']}: {kind} suite excluded "
+                                       "(no test passes for the reference in this environment)")
+                elif res.get(f"{kind}_passed") != total:
                     FAILURES.append(f"build.devbench {inst['id']}: reference fails {kind} tests")
 
 
@@ -77,7 +88,11 @@ def check_tdd(n: int) -> None:
     for inst in insts:
         with tempfile.TemporaryDirectory() as tmp:
             ws = snapshot_repo(inst["repo"], inst["base_commit"], Path(tmp) / "ws")
-            apply_patch(ws, inst["test_patch"])  # the upstream test is a perfect answer
+            ok, msg = apply_patch(ws, inst["test_patch"])  # the upstream test is a perfect answer
+            if not ok:
+                print(f"test.tdd {inst['instance_id']}: upstream test patch did not apply")
+                FAILURES.append(f"test.tdd {inst['instance_id']}: test patch did not apply")
+                continue
             tests = _test_files(changed_files(ws))
             py = sympy_env(inst["version"])
             g = grade_repro(py, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
@@ -105,13 +120,20 @@ def check_review(n: int) -> None:
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--n", type=int, default=3)
+    def positive(v: str) -> int:
+        if int(v) < 1:
+            raise argparse.ArgumentTypeError("--n must be at least 1")
+        return int(v)
+
+    ap.add_argument("--n", type=positive, default=3)
     ap.add_argument("--only", choices=["humaneval", "devbench", "tdd", "review"], action="append")
     args = ap.parse_args(argv)
     checks = {"humaneval": check_humaneval, "devbench": check_devbench, "tdd": check_tdd,
               "review": check_review}
     for name in args.only or checks:
         checks[name](args.n)
+    if LIMITATIONS:
+        print("\nLimitations (not failures):\n  " + "\n  ".join(LIMITATIONS))
     if FAILURES:
         print("\nSELFCHECK FAILED:\n  " + "\n  ".join(FAILURES))
         raise SystemExit(1)

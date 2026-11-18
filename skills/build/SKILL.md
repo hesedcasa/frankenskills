@@ -25,13 +25,13 @@ Implement a plan one thin, verified slice at a time: failing test, minimal code,
 
 Do not compress the process. A build where the whole implementation was written in one pass, or where the ledger or review was skipped, **is not done**. Saying you skipped those steps doesn't make it done either: do them.
 
-- Work task by task from the plan. For each task, write its failing test and **run it** before any implementation change for that task, whether the change creates a file or edits an existing one.
+- Work task by task from the plan. For each task, write its failing test and **run it** before any implementation change for that task, whether the change creates a file or edits an existing one. The `test` skill's declared exceptions apply here too (docs, pure configuration, generated code, or an impractical test replaced by the closest executable check): state which one, and record it in the ledger instead of a RED/GREEN pair.
 - One commit per task, plus a ledger line.
 - Finish with the whole-branch `review` (Finishing, below).
 
 ## Step 1: Set up the ledger
 
-Conversation memory does not survive compaction; an executor that loses its place re-implements finished tasks. Keep a ledger file beside the plan (`specs/<slug>/LEDGER.md`, or a git-ignored path if the project prefers):
+Conversation memory does not survive compaction; an executor that loses its place re-implements finished tasks. Keep a tracked ledger file beside the plan (`specs/<slug>/LEDGER.md`). It must be committed with each task, so if the project's `.gitignore` would exclude it, stage it with `git add -f`:
 
 ```
 # Build ledger — plan: specs/export-csv/PLAN.md
@@ -98,7 +98,7 @@ Every step with an expected output gets compared against real output. Three outc
 ### 3.4 Completion contract
 A task is complete only when all of these are true **with evidence from this session**:
 
-- Every test the task names exists, was seen failing, and now passes. You read the output.
+- Every test the task names exists, was seen failing, and now passes. You read the output. (Or the task used a declared exception from the `test` skill, recorded in the ledger with the check that replaced the test.)
 - The full suite passes (or fails only on recorded pre-existing failures).
 - Typecheck, lint, and build pass where the project has them.
 - For user-visible behavior: you exercised it in the running system (CLI invocation, HTTP request, browser) and observed the expected result.

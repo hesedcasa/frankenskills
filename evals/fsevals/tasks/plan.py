@@ -29,6 +29,41 @@ RUBRIC = {
 }
 
 
+def _rubric_problem(r: dict) -> str | None:
+    if "_judge_error" in r:
+        return r["_judge_error"]
+    scores = r.get("scores")
+    if not isinstance(scores, dict):
+        return "no scores object"
+    bad = [k for k in RUBRIC if scores.get(k) not in (0, 1, 2)]
+    return f"missing or out-of-range scores for {bad}" if bad else None
+
+
+def _coverage_problem(c: dict, ids: list[str]) -> str | None:
+    if "_judge_error" in c:
+        return c["_judge_error"]
+    cov, unc = c.get("covered"), c.get("not_covered")
+    if not isinstance(cov, list) or not isinstance(unc, list):
+        return "covered/not_covered must be lists"
+    want, a, b = set(ids), set(cov) & set(ids), set(unc) & set(ids)
+    if a & b:
+        return f"{len(a & b)} ids in both lists"
+    if a | b != want:
+        return f"{len(want - (a | b))} prompted ids missing"
+    return None
+
+
+def _validated_judge(call, problem, what: str, attempts: int = 3) -> dict:
+    """Re-ask the judge until its answer is complete and valid; never score a partial one."""
+    last = None
+    for _ in range(attempts):
+        result = call()
+        last = problem(result)
+        if last is None:
+            return result
+    raise RuntimeError(f"{what} gave no valid answer: {last}")
+
+
 class DevBenchPlan(Task):
     name = "plan.devbench"
     skill = "plan"
@@ -74,36 +109,33 @@ class DevBenchPlan(Task):
             return out | {"plan_score": 0.0, "rubric_score": 0.0, "test_coverage": 0.0} | conv.summary()
 
         prd_text = (Path(inst["path"]) / prd).read_text(errors="replace")
-        r = judge(
+        r = _validated_judge(lambda: judge(
             "Score this implementation plan written from the PRD below. For each criterion "
             "give 0 (absent), 1 (partial), or 2 (fully met).\n\nCRITERIA:\n"
             + "\n".join(f"- {k}: {v}" for k, v in RUBRIC.items())
             + f"\n\nPRD:\n<<<\n{prd_text[:15000]}\n>>>\n\nPLAN:\n<<<\n{plan[:40000]}\n>>>\n\n"
             'Return {"scores": {criterion: 0|1|2}, "notes": string}.',
-            ctx.judge_model)
-        if "_judge_error" in r or not isinstance(r.get("scores"), dict):
-            raise RuntimeError(f"rubric judge failed: {r.get('_judge_error', r)}")
-        scores = {k: (r.get("scores") or {}).get(k) for k in RUBRIC}
-        valid = [s for s in scores.values() if isinstance(s, (int, float))]
-        rubric = sum(valid) / (2 * len(valid)) if valid else None
+            ctx.judge_model), _rubric_problem, "rubric judge")
+        scores = {k: r["scores"][k] for k in RUBRIC}
+        rubric = sum(scores.values()) / (2 * len(RUBRIC))
 
         ref = reference_tests(inst)
         names = [f"{f}::{t}" for f, ts in ref.items() for t in ts]
         cov = None
         if names:
-            c = judge(
+            shown = names[:200]
+            c = _validated_judge(lambda: judge(
                 "Below are the tests a hidden reference test suite runs against this project, "
                 "and an implementation plan. For each test, decide whether the plan commits to "
                 "building AND testing the behavior that test checks (by name or by clearly "
                 "equivalent behavior). Infer each test's behavior from its file and name.\n\n"
-                f"HIDDEN TESTS:\n" + "\n".join(names[:200])
+                f"HIDDEN TESTS:\n" + "\n".join(shown)
                 + f"\n\nPLAN:\n<<<\n{plan[:40000]}\n>>>\n\n"
+                'Every test id must appear in exactly one of the two lists. '
                 'Return {"covered": [test ids covered], "not_covered": [test ids]}.',
-                ctx.judge_model)
-            if "_judge_error" in c or not isinstance(c.get("covered"), list):
-                raise RuntimeError(f"coverage judge failed: {c.get('_judge_error', c)}")
-            covered = set(c.get("covered") or [])
-            cov = len([n for n in names if n in covered]) / len(names)
+                ctx.judge_model), lambda c: _coverage_problem(c, shown), "coverage judge")
+            covered = set(c["covered"])
+            cov = len([n for n in shown if n in covered]) / len(shown)
         parts = [x for x in (rubric, cov) if x is not None]
         return out | {
             "plan_score": sum(parts) / len(parts) if parts else None,

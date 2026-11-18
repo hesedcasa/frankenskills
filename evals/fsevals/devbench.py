@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import threading
 from pathlib import Path
 
@@ -92,17 +93,18 @@ class OracleError(RuntimeError):
     """The reference run could not be measured (timeout or crash); never cache it."""
 
 
-def _pytest_nodes(python: Path, target: str, cwd: Path) -> tuple[set[str], set[str], str]:
-    """Run pytest on one test dir/file; return (passed node ids, all node ids, output).
+def _pytest_nodes(python: Path, target: str, cwd: Path) -> tuple[set[str], int, str]:
+    """Run pytest on one test dir/file; return (passed node ids, exit code, output).
 
-    Raises subprocess.TimeoutExpired if the run times out.
+    Raises subprocess.TimeoutExpired if the run times out, FileNotFoundError if the
+    configured target is missing.
     """
     if not (cwd / target).exists():
-        return set(), set(), f"{target} not found"
-    _, out = sh([str(python), "-m", "pytest", "-rA", "-q", "-p", "no:cacheprovider",
-                 "-o", "addopts=", target], cwd=cwd, timeout=1200,
-                env={"PYTHONPATH": str(cwd)})
-    return set(_PASSED.findall(out)), set(_NODE.findall(out)), out
+        raise FileNotFoundError(f"configured test target {target} is missing")
+    code, out = sh([str(python), "-m", "pytest", "-rA", "-q", "-p", "no:cacheprovider",
+                    "-o", "addopts=", target], cwd=cwd, timeout=1200,
+                   env={"PYTHONPATH": str(cwd)})
+    return set(_PASSED.findall(out)), code, out
 
 
 def _populate(inst: dict, ws: Path, grade_dir: Path) -> None:
@@ -140,9 +142,14 @@ def oracle_passing(inst: dict, python: Path) -> dict[str, list[str]]:
                 out[kind] = []
                 continue
             try:
-                out[kind] = sorted(_pytest_nodes(python, target, grade)[0])
-            except Exception as e:  # timeout or crash: a failed measurement, not "no tests"
+                passed, code, _ = _pytest_nodes(python, target, grade)
+            except Exception as e:  # timeout, launch failure, missing target
                 raise OracleError(f"reference run of {inst['id']} {kind} tests failed: {e}")
+            # 0 = all passed, 1 = some failed: both are real measurements. Anything else
+            # (interrupted, internal/usage error, nothing collected) is not.
+            if code not in (0, 1):
+                raise OracleError(f"reference run of {inst['id']} {kind} tests exited {code}")
+            out[kind] = sorted(passed)
     cache.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(out, indent=1))
@@ -158,16 +165,20 @@ def run_hidden_tests(inst: dict, ws: Path, grade_dir: Path, python: Path) -> dic
     oracle = oracle_passing(inst, python)
     _populate(inst, ws, grade_dir)
     res = {}
-    for kind in ("unit", "acceptance"):
-        target = inst["config"].get(f"{kind}_tests")
-        want = set(oracle.get(kind, []))
-        if not target or not want:
-            continue
-        try:
-            passed, _, out = _pytest_nodes(python, target, grade_dir)
-        except Exception as e:  # the agent's code hung the suite: everything counts as failed
-            passed, out = set(), f"hidden {kind} tests did not finish: {e}"
-        res[f"{kind}_passed"], res[f"{kind}_total"] = len(passed & want), len(want)
-        res[f"{kind}_tail"] = out[-1500:]
-    shutil.rmtree(grade_dir, ignore_errors=True)
+    try:
+        for kind in ("unit", "acceptance"):
+            target = inst["config"].get(f"{kind}_tests")
+            want = set(oracle.get(kind, []))
+            if not target or not want:
+                continue
+            try:
+                passed, _, out = _pytest_nodes(python, target, grade_dir)
+            except subprocess.TimeoutExpired as e:  # the agent's code hung the suite
+                passed, out = set(), f"hidden {kind} tests did not finish: {e}"
+            # Collection errors from the agent's code are failures, so any exit code
+            # counts here; launch failures and missing targets propagate as crashes.
+            res[f"{kind}_passed"], res[f"{kind}_total"] = len(passed & want), len(want)
+            res[f"{kind}_tail"] = out[-1500:]
+    finally:
+        shutil.rmtree(grade_dir, ignore_errors=True)
     return res
