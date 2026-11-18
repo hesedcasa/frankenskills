@@ -1,0 +1,8 @@
+{
+  "name": "frankenskills",
+  "version": "0.1.0",
+  "description": "Five lifecycle skills for coding agents: spec, plan, build, test, review. Synthesized from addyosmani/agent-skills, mattpocock/skills, cursor/plugins pstack, and obra/superpowers.",
+  "repository": "https://github.com/hesedcasa/frankenskills",
+  "license": "MIT",
+  "keywords": ["skills", "spec", "planning", "tdd", "testing", "code-review", "workflow"]
+}
