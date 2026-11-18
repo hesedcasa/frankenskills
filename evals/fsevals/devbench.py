@@ -119,6 +119,11 @@ def _populate(inst: dict, ws: Path, grade_dir: Path) -> None:
         _copy(src, pattern, grade_dir)
 
 
+# Bump when the oracle's measurement rules change, so stale cache entries are recomputed.
+# v2: reference runs exiting other than 0/1, or with a missing target, are rejected.
+ORACLE_VERSION = 2
+
+
 def oracle_passing(inst: dict, python: Path) -> dict[str, list[str]]:
     """Hidden tests the reference implementation passes in this environment (cached).
 
@@ -129,7 +134,9 @@ def oracle_passing(inst: dict, python: Path) -> dict[str, list[str]]:
 
     cache = CACHE_DIR / "devbench_oracle" / f"{inst['id']}.json"
     if cache.exists():
-        return json.loads(cache.read_text())
+        cached = json.loads(cache.read_text())
+        if cached.get("version") == ORACLE_VERSION:
+            return {k: cached[k] for k in ("unit", "acceptance")}
     import tempfile
 
     out = {}
@@ -152,7 +159,7 @@ def oracle_passing(inst: dict, python: Path) -> dict[str, list[str]]:
             out[kind] = sorted(passed)
     cache.parent.mkdir(parents=True, exist_ok=True)
     tmp = cache.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
-    tmp.write_text(json.dumps(out, indent=1))
+    tmp.write_text(json.dumps({"version": ORACLE_VERSION} | out, indent=1))
     tmp.replace(cache)  # atomic: readers see the old file or the complete new one
     return out
 
