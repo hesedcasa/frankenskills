@@ -87,6 +87,14 @@ def snapshot_repo(repo: str, commit: str, dest: Path) -> Path:
         try:
             tar.extractall(dest, filter="tar")
         except TypeError:  # Python without extraction filters (< 3.10.12 / 3.11.4)
+            root = dest.resolve()
+            for m in tar.getmembers():  # same guarantee as filter="tar": stay inside dest
+                target = (dest / m.name).resolve()
+                if root not in target.parents and target != root:
+                    raise RuntimeError(f"unsafe path in archive: {m.name}")
+                if (m.issym() or m.islnk()) and (m.linkname.startswith("/") or
+                        root not in (target.parent / m.linkname).resolve().parents):
+                    raise RuntimeError(f"unsafe link in archive: {m.name} -> {m.linkname}")
             tar.extractall(dest)
     init_repo(dest, "base")
     return dest
