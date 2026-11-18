@@ -32,6 +32,12 @@ expectation is the requirement; grade findings by their effect on that user.
 Verify each finding against the callers, guards, and tests that reach the
 code before reporting it. Mark defects that already existed before this
 change as pre-existing. Zero findings is a valid result.
+
+Only a finding backed by evidence may be Critical or Important: a run that
+shows the wrong behavior, or a concrete input traced step by step to a wrong
+output with file:line. Anything you could not establish that way is Minor,
+labelled "unverified". Recommend Request changes only when a Critical or
+Important finding meets this bar.
 ```
 
 ## Spec reviewer

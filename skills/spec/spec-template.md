@@ -13,6 +13,9 @@ Supersedes / extends: <link to original spec if this is a delta spec, else omit>
 ## Problem
 <The problem, from the user's perspective. Who has it, when, and what it costs them today.>
 
+## Given
+<Every concrete fact from the request, the code, and the user's answers, copied verbatim: examples, exact inputs and expected outputs, error messages, versions, reproduction steps. Nothing paraphrased, nothing dropped.>
+
 ## Outcome
 <What will be true when this ships, in one or two sentences. Why now.>
 

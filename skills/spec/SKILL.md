@@ -17,7 +17,7 @@ Before replying, size the request honestly:
 
 | What you know | What you do |
 |---|---|
-| Everything that matters is in the request ("make the button blue") | Not a spec job. Do it, or hand straight to `plan`/`build`. Say so in one line. |
+| Everything that matters is in the request ("make the button blue"; a function signature with a precise docstring and consistent examples; a bug report with exact repro and expected result) | Not a spec job. **Ask nothing.** Do it, or hand straight to `plan`/`build`. Say so in one line. |
 | One or two decisions are open, the change is small | **Short spec**: settle them, write a 10–30 line spec, get approval. |
 | Something non-trivial is missing, or it touches several modules, or it's a one-way door | **Full spec**: the whole process below. |
 | The request bundles several independently testable capabilities | **Capability map first** (Step 1b), then a spec per module. |
@@ -64,6 +64,7 @@ ASSUMPTIONS I'M MAKING (correct any now):
 Then work the **design tree**. Every decision branches into the decisions that hang off it. The **frontier** is the set of decisions whose prerequisites are settled.
 
 - **Ask only questions whose answer would change what gets built** and that neither the request nor the project answers. Everything else, state as a proposal with your reason and move on.
+- **Don't over-ask.** If you can predict the answer with high confidence from the request, its examples, or the code, don't ask: state it as an assumption. A complete request gets zero questions. Asking about what is already clear costs the user time and signals you didn't read it.
 - **Ask the frontier, not the whole tree.** Usually one question per message; up to three when they are genuinely independent. A question that depends on another still-open question waits for a later round.
 - **Attach your recommended answer to every question**, with the reasoning, worded so "yes" accepts it. Reacting is faster than generating, and it exposes *your* assumptions. Occasionally recommend something you expect them to push back on.
 - **Until you know *why* they want it, ask open questions with no options attached.** Their own words carry intent your options can't. Once you know why, sketch named options concretely, with trade-offs and your pick.
@@ -145,6 +146,7 @@ Use the template in [spec-template.md](spec-template.md). Rules:
 
 - **Where it goes:** follow the project's convention if one exists (OpenSpec, `docs/specs/`, an issue tracker). Otherwise `specs/<feature-slug>/SPEC.md`. The plan will live beside it.
 - **Size it to the work.** A small change gets the short form (a line or two per section). A project gets the full form. A two-line spec still needs acceptance criteria.
+- **Start with "Given": the facts as stated.** Before any design content, copy every concrete fact from the request, the code you read, and the user's answers. Copy them verbatim: examples, values, inputs and expected outputs, error messages, versions, reproduction steps. A spec that loses a stated detail is wrong, however well structured it is.
 - **Decisions, not code.** Name modules, interfaces, data shapes, and contracts. Avoid file paths and code snippets: they go stale. Exception: a snippet from a spike that encodes a decision more precisely than prose (a state machine, a schema, a type).
 - **Name the test seams.** Where will behavior be observed? Prefer existing seams, and the highest one possible; the fewer seams, the better.
 - **Mark what's theirs vs. yours.** Decisions the user made, decisions you made (with reasons), and what's explicitly left to the builder.

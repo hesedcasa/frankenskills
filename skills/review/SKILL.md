@@ -101,6 +101,14 @@ A finding that sounds right is not a finding until checked.
 - Merge findings that share a root cause.
 - **Zero findings is a valid result.** Don't invent one to look thorough.
 
+### The bar for blocking a merge
+
+A finding may be **Critical** or **Important**, and so block the merge, only when it is established by evidence:
+- a run (test, script, or command) that shows the wrong behavior, or
+- a concrete input traced step by step through the code to a wrong output, with `file:line` at each step.
+
+A plausible concern you could not establish this way ("this might break X", "edge cases may not be handled") is graded **Minor** and labelled *unverified*. It does not block. List it so the author can check it.
+
 ## Step 5: Grade and report
 
 Grade by **effect on a reasonable person using the software if it ships**, not by whether the spec mentions the trigger.
@@ -118,6 +126,8 @@ Lead with leverage: correctness and security first, then structural problems and
 Be honest: no rubber-stamp "LGTM", no softening a real bug into "might be a minor concern", no inflating nits to Critical. Acknowledge what's done well, specifically.
 
 Use the format in [reviewer-prompt.md](reviewer-prompt.md#output-format): spec verdict, strengths, issues by severity (each with `file:line`, what's wrong, why it matters, how to fix, evidence), blast-radius notes, **declined to judge** (behaviors considered and set aside, with why), and a verdict: **Approve**, **Approve with fixes**, or **Request changes**. Keep the spec and quality sections separate; don't rerank across them.
+
+**Verdict rule:** request changes only when at least one Critical or Important finding meets the evidence bar above. A change that does what was asked and has only Minor or unverified concerns is approved, with those concerns listed. Rejecting a correct change costs the author as much as approving a broken one.
 
 ## Step 6: Act on findings (when you are the author)
 

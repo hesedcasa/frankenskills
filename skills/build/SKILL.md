@@ -13,11 +13,21 @@ Implement a plan one thin, verified slice at a time: failing test, minimal code,
 
 ## Step 0: Preconditions
 
-1. **A plan exists.** Look for the plan beside the spec (`specs/<slug>/PLAN.md`) or wherever the project keeps plans. If there's none and the work is non-trivial, stop and use the `plan` skill. For a genuinely small change (1–2 files, obvious approach), write the 2–5 steps as a todo list and proceed.
-2. **The plan was approved.** If it wasn't, present it and wait.
+1. **A plan exists.** Look for the plan beside the spec (`specs/<slug>/PLAN.md`) or wherever the project keeps plans. If there's none:
+   - **Small** (1–2 files, one obvious approach): write the 2–5 steps as a todo list and proceed.
+   - **Anything bigger** needs a written plan before any code. That includes "implement this whole project/feature from the docs": a new project is never small. If the user already approved the spec and asked you to build, write a brief `PLAN.md` yourself in the `plan` skill's format (tasks in order, each with its failing test and run command), commit it, and proceed. Otherwise use the `plan` skill and wait for approval.
+2. **The plan was approved.** A user who approved the spec and told you to build has approved a plan you derive from it. Otherwise present the plan and wait.
 3. **Clean baseline.** `git status --porcelain` shows nothing except the spec/plan files. Uncommitted unrelated work: stop and ask the user to commit, stash, or confirm. Per-task commits must not absorb it.
 4. **Isolated branch.** Never implement on `main`/`master` without explicit consent. Use a feature branch, or a git worktree if other work is in flight.
 5. **Green start.** Run the full suite and build once. Record the result. Failures that exist before you touch anything are noted in the ledger as pre-existing, not silently inherited.
+
+### The process is the job
+
+Do not compress the process. A build where the whole implementation was written in one pass, or where the ledger or review was skipped, **is not done**. Saying you skipped those steps doesn't make it done either: do them.
+
+- Work task by task from the plan. For each task, write its failing test and **run it** before any implementation file for that task exists.
+- One commit per task, plus a ledger line.
+- Finish with the whole-branch `review` (Finishing, below).
 
 ## Step 1: Set up the ledger
 

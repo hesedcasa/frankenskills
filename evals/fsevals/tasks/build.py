@@ -22,9 +22,24 @@ MAX_ROUNDS = 4
 TEST_FILE = re.compile(r"(^|/)(test_[^/]*|[^/]*_test)\.py$|(^|/)tests?/")
 
 
+_SHELL_WRITE = re.compile(
+    r"""(?:>>?|\btee\s+(?:-a\s+)?)\s*['"]?([\w./-]+\.py)\b"""
+    r"""|open\(\s*['"]([\w./-]+\.py)['"]\s*,\s*['"][wa]""")
+
+
+def written_paths(call: dict) -> list[str]:
+    """Files a tool call writes: Write/Edit targets and shell redirections in Bash."""
+    if call["name"] in ("Write", "Edit", "NotebookEdit"):
+        return [str(call["input"].get("file_path", ""))]
+    if call["name"] == "Bash":
+        cmd = str(call["input"].get("command", ""))
+        return [a or b for a, b in _SHELL_WRITE.findall(cmd)]
+    return []
+
+
 def _first_write(tool_calls, pred):
     for i, c in enumerate(tool_calls):
-        if c["name"] in ("Write", "Edit") and pred(str(c["input"].get("file_path", ""))):
+        if any(pred(p) for p in written_paths(c)):
             return i
     return None
 
