@@ -161,13 +161,20 @@ def grade_repro(python: Path, ws: Path, tests: list[str], gold_patch: str, env: 
     pre-existing tests in the same file.
     """
     touched = _touched_tests(ws, tests)
-    new_ids = {i for i in _collect(python, tests, ws, env) if i.split("[")[0] in touched}
+    ids_before = _collect(python, tests, ws, env)
     before, out_before = _outcomes(python, tests, ws, env)
+    # A test file that cannot even be collected on the old code (e.g. it imports a
+    # symbol the fix introduces) counts as failing before, as in TDD-Bench.
+    broken_before = {node for node, status in before.items()
+                     if status == "ERROR" and "::" not in node}
     ok, msg = apply_patch(ws, gold_patch)
     if not ok:
         return {"fail_to_pass": None, "error": f"gold patch did not apply: {msg[-500:]}"}
+    ids_after = _collect(python, tests, ws, env)
     after, out_after = _outcomes(python, tests, ws, env)
-    fails_before = any(before.get(i) in ("FAILED", "ERROR") for i in new_ids)
+    new_ids = {i for i in ids_before | ids_after if i.split("[")[0] in touched}
+    fails_before = any(before.get(i) in ("FAILED", "ERROR") or i.split("::")[0] in broken_before
+                       for i in new_ids)
     passes_after = bool(new_ids) and all(after.get(i) == "PASSED" for i in new_ids)
     return {"fail_to_pass": fails_before and passes_after, "fails_before": fails_before,
             "passes_after": passes_after, "new_tests": sorted(new_ids),
