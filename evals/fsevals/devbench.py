@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import threading
 from pathlib import Path
 
 from .workspace import fresh_dir, sh, uv_venv
@@ -86,16 +88,20 @@ _PASSED = re.compile(r"^PASSED (\S+)", re.M)
 _NODE = re.compile(r"^(?:PASSED|FAILED|ERROR) (\S+)", re.M)
 
 
+class OracleError(RuntimeError):
+    """The reference run could not be measured (timeout or crash); never cache it."""
+
+
 def _pytest_nodes(python: Path, target: str, cwd: Path) -> tuple[set[str], set[str], str]:
-    """Run pytest on one test dir/file; return (passed node ids, all node ids, output)."""
+    """Run pytest on one test dir/file; return (passed node ids, all node ids, output).
+
+    Raises subprocess.TimeoutExpired if the run times out.
+    """
     if not (cwd / target).exists():
         return set(), set(), f"{target} not found"
-    try:
-        _, out = sh([str(python), "-m", "pytest", "-rA", "-q", "-p", "no:cacheprovider",
-                     "-o", "addopts=", target], cwd=cwd, timeout=1200,
-                    env={"PYTHONPATH": str(cwd)})
-    except Exception as e:  # timeout
-        return set(), set(), str(e)
+    _, out = sh([str(python), "-m", "pytest", "-rA", "-q", "-p", "no:cacheprovider",
+                 "-o", "addopts=", target], cwd=cwd, timeout=1200,
+                env={"PYTHONPATH": str(cwd)})
     return set(_PASSED.findall(out)), set(_NODE.findall(out)), out
 
 
@@ -130,9 +136,17 @@ def oracle_passing(inst: dict, python: Path) -> dict[str, list[str]]:
         _populate(inst, Path(inst["path"]), grade)
         for kind in ("unit", "acceptance"):
             target = inst["config"].get(f"{kind}_tests")
-            out[kind] = sorted(_pytest_nodes(python, target, grade)[0]) if target else []
+            if not target:
+                out[kind] = []
+                continue
+            try:
+                out[kind] = sorted(_pytest_nodes(python, target, grade)[0])
+            except Exception as e:  # timeout or crash: a failed measurement, not "no tests"
+                raise OracleError(f"reference run of {inst['id']} {kind} tests failed: {e}")
     cache.parent.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps(out, indent=1))
+    tmp = cache.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(json.dumps(out, indent=1))
+    tmp.replace(cache)  # atomic: readers see the old file or the complete new one
     return out
 
 
@@ -149,7 +163,10 @@ def run_hidden_tests(inst: dict, ws: Path, grade_dir: Path, python: Path) -> dic
         want = set(oracle.get(kind, []))
         if not target or not want:
             continue
-        passed, _, out = _pytest_nodes(python, target, grade_dir)
+        try:
+            passed, _, out = _pytest_nodes(python, target, grade_dir)
+        except Exception as e:  # the agent's code hung the suite: everything counts as failed
+            passed, out = set(), f"hidden {kind} tests did not finish: {e}"
         res[f"{kind}_passed"], res[f"{kind}_total"] = len(passed & want), len(want)
         res[f"{kind}_tail"] = out[-1500:]
     shutil.rmtree(grade_dir, ignore_errors=True)

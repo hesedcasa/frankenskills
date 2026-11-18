@@ -84,7 +84,10 @@ def snapshot_repo(repo: str, commit: str, dest: Path) -> Path:
                               capture_output=True, check=True, timeout=3600).stdout
     fresh_dir(dest)
     with tarfile.open(fileobj=io.BytesIO(data)) as tar:
-        tar.extractall(dest, filter="tar")
+        try:
+            tar.extractall(dest, filter="tar")
+        except TypeError:  # Python without extraction filters (< 3.10.12 / 3.11.4)
+            tar.extractall(dest)
     init_repo(dest, "base")
     return dest
 

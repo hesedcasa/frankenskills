@@ -160,7 +160,9 @@ class SweSpec(Task):
 
         changed = changed_files(ws)
         md = [f for f in changed if f.lower().endswith(".md")]
-        spec_path = ws / "SPEC.md" if (ws / "SPEC.md").exists() else (ws / md[0] if md else None)
+        specs = [f for f in md if Path(f).name == "SPEC.md"]
+        pick = "SPEC.md" if (ws / "SPEC.md").exists() else (specs[0] if specs else (md[0] if md else None))
+        spec_path = ws / pick if pick else None
         spec_text = spec_path.read_text(errors="replace") if spec_path else ""
         convo = "\n\n".join(f"AGENT: {r['agent'][-2500:]}\nUSER: {r.get('user_reply', '')}"
                             for r in rounds)

@@ -14,7 +14,7 @@ Judge a change on two separate axes, **did it build the right thing** (spec) and
 ## Step 1: Pin the scope
 
 - The user names the scope (PR, branch, commit range, files). Otherwise: the current branch against its merge-base with the default branch, plus uncommitted changes.
-- Resolve the fixed point and confirm the diff is non-empty before doing anything else: `git rev-parse <ref>`, `git diff <ref>...HEAD --stat`, `git log <ref>..HEAD --oneline`. A bad ref or an empty diff fails here.
+- Resolve the fixed point and confirm the scope is non-empty before doing anything else: `git rev-parse <ref>`, `git log <ref>..HEAD --oneline`, `git diff <ref>...HEAD --stat` for committed work, and `git diff HEAD --stat` plus `git status --short` for staged, unstaged, and untracked changes. Review the union of both. A bad ref, or a scope that is empty on both counts, fails here.
 - For a PR, read its description and linked issues.
 
 ## Step 2: Gather the intent
@@ -55,7 +55,7 @@ Compare the diff to what was asked:
 Read the **tests first**: they reveal intent and coverage.
 
 **Tests**
-- Does every new behavior have a test that would fail if the behavior broke? Answer by experiment where you can: flip a condition the change adds, run the suite, restore. A mutation that stays green is a finding: name the missing test.
+- Does every new behavior have a test that would fail if the behavior broke? Answer by experiment where you can: flip a condition the change adds and run the suite, in a disposable worktree or copy so the reviewed checkout never changes. A mutation that stays green is a finding: name the missing test.
 - Behavior through public seams, not internals; no assertions on mocks; no expected values computed by the code under test; mocks only at system boundaries.
 - Bug fixes have a regression test. Nothing skipped or disabled. Test output clean.
 

@@ -31,10 +31,11 @@ ask now, before writing code.
 1. Write the failing test the task names. Run it. Confirm it fails for the
    expected reason, and keep that output.
 2. Write the minimal code to pass it. Nothing the task didn't ask for.
-3. Run the focused test while iterating; run the full suite once before
-   committing.
-4. Commit only this task's files with a descriptive message.
-5. Self-review your diff (below), fix what you find.
+3. Run the focused test while iterating.
+4. Self-review your diff (below) and fix what you find.
+5. Run the full suite, then commit only this task's files with a descriptive
+   message. Any later fix gets its own commit: the review covers BASE..HEAD,
+   so uncommitted work is invisible to it.
 6. Write your report and reply.
 
 ## Rules

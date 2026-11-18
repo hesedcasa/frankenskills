@@ -81,6 +81,8 @@ class DevBenchPlan(Task):
             + f"\n\nPRD:\n<<<\n{prd_text[:15000]}\n>>>\n\nPLAN:\n<<<\n{plan[:40000]}\n>>>\n\n"
             'Return {"scores": {criterion: 0|1|2}, "notes": string}.',
             ctx.judge_model)
+        if "_judge_error" in r or not isinstance(r.get("scores"), dict):
+            raise RuntimeError(f"rubric judge failed: {r.get('_judge_error', r)}")
         scores = {k: (r.get("scores") or {}).get(k) for k in RUBRIC}
         valid = [s for s in scores.values() if isinstance(s, (int, float))]
         rubric = sum(valid) / (2 * len(valid)) if valid else None
@@ -98,6 +100,8 @@ class DevBenchPlan(Task):
                 + f"\n\nPLAN:\n<<<\n{plan[:40000]}\n>>>\n\n"
                 'Return {"covered": [test ids covered], "not_covered": [test ids]}.',
                 ctx.judge_model)
+            if "_judge_error" in c or not isinstance(c.get("covered"), list):
+                raise RuntimeError(f"coverage judge failed: {c.get('_judge_error', c)}")
             covered = set(c.get("covered") or [])
             cov = len([n for n in names if n in covered]) / len(names)
         parts = [x for x in (rubric, cov) if x is not None]

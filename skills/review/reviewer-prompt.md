@@ -75,8 +75,9 @@ Surgery, Divergent Change, Speculative Generality, Message Chains, Middle Man.
 
 Review the tests first:
 - Would each test fail if the behavior broke? Try at least one mutation on
-  new logic (flip a condition, run the focused test, restore the file from a
-  copy) and report what happened.
+  new logic, in a disposable copy (`git worktree add /tmp/mut <HEAD>` or a
+  `cp -r`), never in the reviewed checkout: flip a condition, run the focused
+  test there, and report what happened.
 - Behavior through public seams; no mock assertions; expected values not
   computed by the code under test; mocks only at system boundaries.
 

@@ -51,10 +51,10 @@ Work **vertically**: one test, then the code for it, then the next test. Never w
 
 ### Verify RED (mandatory)
 Run the focused command. Confirm:
-- It **fails** (an assertion), it doesn't **error** (import error, typo, missing fixture).
-- The failure message is the one you expected, because the feature is missing.
+- It **fails because the feature is missing**: an assertion failure, or, for a brand-new interface, the expected missing-symbol error (`ImportError`/`NameError`/`AttributeError` naming the thing you're about to create). Any other error (a typo, a missing fixture, a wrong import path) means the test is broken: fix it and rerun.
+- The failure message is the one you expected.
 
-Passes immediately? You're testing existing behavior, or the test is wrong. Fix the test. Errors? Fix the error and rerun until it fails correctly.
+Passes immediately? For new behavior, the test is wrong or already satisfied: fix it. For tests of **existing** behavior (characterization tests, coverage for code that already works), passing first is expected. Prove the test can fail instead: break the behavior on purpose (see Mutation check), watch it fail, restore.
 
 ### GREEN: minimal code
 The simplest code that passes. No extra options, parameters, or features the test doesn't demand.

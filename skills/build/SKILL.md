@@ -25,7 +25,7 @@ Implement a plan one thin, verified slice at a time: failing test, minimal code,
 
 Do not compress the process. A build where the whole implementation was written in one pass, or where the ledger or review was skipped, **is not done**. Saying you skipped those steps doesn't make it done either: do them.
 
-- Work task by task from the plan. For each task, write its failing test and **run it** before any implementation file for that task exists.
+- Work task by task from the plan. For each task, write its failing test and **run it** before any implementation change for that task, whether the change creates a file or edits an existing one.
 - One commit per task, plus a ledger line.
 - Finish with the whole-branch `review` (Finishing, below).
 
@@ -105,7 +105,7 @@ A task is complete only when all of these are true **with evidence from this ses
 - Every deviation from the plan has a `Ruling:` line in the ledger.
 
 ### 3.5 Commit and record
-Stage only the files this task touched (never `git add -A` blindly). Commit with a descriptive message (imperative subject, body says why). In the same step, append to the ledger:
+Append the completion line to the ledger first, then stage the files this task touched **plus the ledger** (never `git add -A` blindly) and commit with a descriptive message (imperative subject, body says why). The ledger entry rides in the task's own commit, so a fresh checkout sees the task as done. Use the commit's parent as `<base7>`; `<head7>` can be written as `HEAD` and resolved by `git log`. The line:
 
 `Task N: complete (<base7>..<head7>, tests: <command> → <result>)`
 

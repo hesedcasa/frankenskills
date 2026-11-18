@@ -21,6 +21,9 @@ from .workspace import (apply_patch, changed_files, commit_all, run_pytest, snap
                         uv_venv)
 
 
+FAILURES: list[str] = []
+
+
 def check_humaneval(n: int) -> None:
     t = all_tasks()["spec.clarify"]
     rows = [r for r in t.load() if r["variant"] == "original"][:n * 10]
@@ -33,6 +36,8 @@ def check_humaneval(n: int) -> None:
             p.write_text(he["prompt"] + he["canonical_solution"])
             ok += run_cases(p, r["entry_point"], r["test_case"])["all_pass"]
     print(f"spec.clarify grader: canonical solutions pass HumanEvalComm cases {ok}/{len(rows)}")
+    if ok != len(rows):
+        FAILURES.append(f"spec.clarify: {len(rows) - ok} canonical solutions rejected")
 
     live_counts = []
     for he in list(sol_rows.values())[:n * 10]:
@@ -55,10 +60,14 @@ def check_devbench(n: int) -> None:
                 res = run_hidden_tests(inst, ws, Path(tmp) / "grade", py)
             except Exception as e:
                 print(f"build.devbench {inst['id']}: ENV FAILED {str(e)[:200]}")
+                FAILURES.append(f"build.devbench {inst['id']}: environment failed")
                 continue
             print(f"build.devbench {inst['id']}: reference implementation scores "
                   f"unit {res.get('unit_passed')}/{res.get('unit_total')}, "
                   f"acceptance {res.get('acceptance_passed')}/{res.get('acceptance_total')}")
+            for kind in ("unit", "acceptance"):
+                if res.get(f"{kind}_passed") != res.get(f"{kind}_total"):
+                    FAILURES.append(f"build.devbench {inst['id']}: reference fails {kind} tests")
 
 
 def check_tdd(n: int) -> None:
@@ -77,6 +86,8 @@ def check_tdd(n: int) -> None:
             print(f"test.tdd {inst['instance_id']}: upstream test "
                   f"{'fail-to-pass' if ok else 'NOT fail-to-pass ' + str(g.get('after'))}")
     print(f"test.tdd grader: {good}/{len(insts)} upstream tests are fail-to-pass")
+    if good != len(insts):
+        FAILURES.append(f"test.tdd: {len(insts) - good} upstream tests not fail-to-pass")
 
 
 def check_review(n: int) -> None:
@@ -88,6 +99,8 @@ def check_review(n: int) -> None:
             commit_all(ws, "candidate")
             print(f"review.swe {inst['instance_id']} resolved={inst['resolved']}: "
                   f"candidate applies={ok}")
+            if not ok:
+                FAILURES.append(f"review.swe {inst['instance_id']}: candidate patch does not apply")
 
 
 def main(argv=None) -> None:
@@ -99,6 +112,10 @@ def main(argv=None) -> None:
               "review": check_review}
     for name in args.only or checks:
         checks[name](args.n)
+    if FAILURES:
+        print("\nSELFCHECK FAILED:\n  " + "\n  ".join(FAILURES))
+        raise SystemExit(1)
+    print("\nselfcheck passed")
 
 
 if __name__ == "__main__":

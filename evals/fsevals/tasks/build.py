@@ -89,11 +89,13 @@ class DevBenchBuild(Task):
         commits = n_commits(ws) - 1
         res = run_hidden_tests(inst, ws, ws.parent / f"{ws.name}.grade", python)
         up, ut = res.get("unit_passed", 0), res.get("unit_total", 0)
+        if not ut and not res.get("acceptance_total"):
+            raise RuntimeError(f"no hidden tests to grade {inst['id']} (empty oracle)")
         ap, at = res.get("acceptance_passed", 0), res.get("acceptance_total", 0)
         t_test = _first_write(conv.tool_calls, lambda p: bool(TEST_FILE.search(p)))
         t_src = _first_write(conv.tool_calls, lambda p: p.endswith(".py") and not TEST_FILE.search(p))
         return {
-            "hidden_pass_rate": (up + ap) / (ut + at) if (ut + at) else 0.0,
+            "hidden_pass_rate": (up + ap) / (ut + at),
             "unit_pass_rate": up / ut if ut else None,
             "acceptance_pass_rate": ap / at if at else None,
             "test_first": None if t_src is None else (t_test is not None and t_test < t_src),

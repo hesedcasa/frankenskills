@@ -94,6 +94,7 @@ def run_agent(
                               timeout=timeout_s, env=env, stdin=subprocess.DEVNULL)
         out = proc.stdout
         if proc.returncode != 0 and not out.strip():
+            check_limit(proc.stderr)
             res.is_error, res.error = True, proc.stderr[-2000:]
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")

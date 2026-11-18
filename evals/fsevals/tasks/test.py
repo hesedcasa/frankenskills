@@ -141,11 +141,17 @@ class TddRepro(Task):
         if not tests:
             return out | {"fail_to_pass": False, "fails_before": False, "passes_after": False}
         if source:  # grade the test against the original code, not the agent's fix
-            git("checkout", "HEAD", "--", *[f for f in source if (ws / f).exists()], cwd=ws,
+            # Restore from the pre-agent revision: HEAD may hold the agent's committed fix.
+            git("checkout", base_rev(ws), "--", *[f for f in source if (ws / f).exists()], cwd=ws,
                 check=False)
         run_env = {"PYTHONPATH": str(ws)}
         g = grade_repro(python, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
         return out | g
+
+
+def base_rev(ws: Path) -> str:
+    """The snapshot's root commit: the repository as it was before the agent ran."""
+    return git("rev-list", "--max-parents=0", "HEAD", cwd=ws).split()[0]
 
 
 def grade_repro(python: Path, ws: Path, tests: list[str], gold_patch: str, env: dict) -> dict:
@@ -191,8 +197,10 @@ def _touched_tests(ws: Path, tests: list[str]) -> set[str]:
 
     out = set()
     for t in tests:
-        diff = git("diff", "-U0", "HEAD", "--", t, cwd=ws, check=False)
-        tracked = git("cat-file", "-e", f"HEAD:{t}", cwd=ws, check=False) == ""
+        # Compare with the pre-agent revision so committed and uncommitted tests both count.
+        base = base_rev(ws)
+        diff = git("diff", "-U0", base, "--", t, cwd=ws, check=False)
+        tracked = git("cat-file", "-e", f"{base}:{t}", cwd=ws, check=False) == ""
         changed = set()
         for m in re.finditer(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", diff, re.M):
             start, n = int(m.group(1)), int(m.group(2) or 1)

@@ -29,13 +29,15 @@ def _call(prompt: str, model: str | None, system: str, timeout_s: int = 600) -> 
                 data = json.loads(proc.stdout)
             except json.JSONDecodeError:
                 data = None
-            if data is not None:
-                if data.get("is_error"):
-                    check_limit(data.get("result") or "")
+            if data is not None and not data.get("is_error"):
                 return data.get("result") or ""
-            else:
-                if attempt == 2:
-                    raise RuntimeError(f"judge call failed: {proc.stderr[-500:]}")
+            # An error must never be returned as text: it would be scored as a judgment
+            # or handed to the agent as the simulated user's reply.
+            check_limit((data or {}).get("result") or "")
+            check_limit(proc.stderr)
+            if attempt == 2:
+                detail = (data or {}).get("result") or proc.stderr[-500:]
+                raise RuntimeError(f"claude call failed: {detail}")
     return ""
 
 

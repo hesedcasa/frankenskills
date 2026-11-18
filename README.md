@@ -33,6 +33,7 @@ Claude Code (plugin):
 Or copy individual skills into your agent's skills directory:
 
 ```bash
+mkdir -p ~/.claude/skills
 cp -r skills/* ~/.claude/skills/
 ```
 

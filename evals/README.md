@@ -27,6 +27,7 @@ The arms differ only in whether frankenskills is installed. Every arm runs with 
 ```bash
 cd evals
 uv venv && uv pip install -e .
+source .venv/bin/activate               # the commands below need the venv's python
 python -m fsevals.fetch                 # pinned GitHub sources -> .cache/data/*.jsonl
 python -m fsevals.selfcheck             # oracle checks: graders score gold answers as correct
 python -m fsevals.cli list
