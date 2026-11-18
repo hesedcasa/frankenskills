@@ -6,8 +6,7 @@ import os
 import re
 import shutil
 import subprocess
-import tarfile
-import io
+import tempfile
 import threading
 from pathlib import Path
 
@@ -73,29 +72,20 @@ def repo_cache(repo: str) -> Path:
 
 
 def snapshot_repo(repo: str, commit: str, dest: Path) -> Path:
-    """Export the tree at `commit` into `dest` as a brand-new single-commit repo.
+    """Write the tree at `commit` into `dest` as a brand-new single-commit repo.
 
-    A plain export (not a clone or worktree) means the agent cannot `git log` its
-    way to the upstream fix.
+    Files come straight from the cached clone via `git checkout-index` with a
+    throwaway index, so git itself handles paths and symlinks exactly as in the
+    upstream tree (no archive extraction). The new repo has no upstream history,
+    so the agent cannot `git log` its way to the fix.
     """
     cache = repo_cache(repo)
-    with _lock(repo):
-        data = subprocess.run(["git", "archive", "--format=tar", commit], cwd=cache,
-                              capture_output=True, check=True, timeout=3600).stdout
     fresh_dir(dest)
-    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
-        try:
-            tar.extractall(dest, filter="tar")
-        except TypeError:  # Python without extraction filters (< 3.10.12 / 3.11.4)
-            root = dest.resolve()
-            for m in tar.getmembers():  # same guarantee as filter="tar": stay inside dest
-                target = (dest / m.name).resolve()
-                if root not in target.parents and target != root:
-                    raise RuntimeError(f"unsafe path in archive: {m.name}")
-                if (m.issym() or m.islnk()) and (m.linkname.startswith("/") or
-                        root not in (target.parent / m.linkname).resolve().parents):
-                    raise RuntimeError(f"unsafe link in archive: {m.name} -> {m.linkname}")
-            tar.extractall(dest)
+    with _lock(repo), tempfile.TemporaryDirectory() as tmp:
+        env = {"GIT_INDEX_FILE": str(Path(tmp) / "index")}
+        base = ["git", "--git-dir", str(cache / ".git"), "--work-tree", str(dest)]
+        sh([*base, "read-tree", commit], env=env, check=True, timeout=3600)
+        sh([*base, "checkout-index", "--all", "--force"], env=env, check=True, timeout=3600)
     init_repo(dest, "base")
     return dest
 
