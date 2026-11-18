@@ -81,6 +81,10 @@ All sources are public GitHub repositories pinned to a commit in `fsevals/fetch.
 
 The datasets are downloaded into `evals/.cache/`, which is git-ignored. They are not redistributed here.
 
+## Results
+
+See [RESULTS.md](RESULTS.md) for the first full run.
+
 ## Validation status
 
 Oracle checks (`python -m fsevals.selfcheck`), run when the suite was built:
