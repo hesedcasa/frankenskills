@@ -40,12 +40,39 @@ The skill arm costs more on every task: +$0.03 to +$0.17 per instance, between 1
 3. **spec:** require the spec to restate every concrete fact from the request and the user's answers (examples, values, expected outputs) verbatim in a "Given" section, before any design content.
 4. **spec:** keep the "don't over-ask" guidance prominent. The 20% control-ask rate is the main cost.
 
+## Round 2: after the suggested changes
+
+The four suggested changes were applied (a1c88b3), then the skill arm was rerun on the affected evals against the same baseline records. A third round (9712acc) changed `spec` again. That change lets the agent ask early, in one question, for facts only the reporter has (environment, versions, exact repro, observed output, examples), since round 2's "don't over-ask" wording had suppressed exactly those.
+
+| Eval | Metric | Baseline | Skill v1 | Skill v2/v3 | Paired Δ vs baseline (latest) |
+|---|---|---|---|---|---|
+| `review.swe` | correct verdict | 65.0% | 62.5% | 67.5% | +2.5 pts [−7.5, +12.5] |
+| `review.swe` | false alarms on correct patches | 10.0% | 30.0% | 10.0% | 0 |
+| `review.swe` | broken patches caught | 40.0% | 55.0% | 45.0% | +5.0 pts [−15, +25] |
+| `build.devbench` | hidden tests passed | 61.6% | 58.7% | 58.8% | −2.8 pts [−9.4, +1.2] |
+| `build.devbench` | failing test written before code | 0% | (unmeasured) | 88.9% | **+88.9 pts** |
+| `build.devbench` | commits per project | 0 | 1.3 | 8.5 | Δ +8.5 |
+| `spec.clarify` | pass all tests | 91.7% | 98.3% | 98.3% | **+6.7 pts** [+1.7, +13.3] |
+| `spec.clarify` | asked when ambiguous | 34.0% | 94.0% | 76.0% | **+42 pts** [+26, +56] |
+| `spec.clarify` | asked when clear (over-asking) | 0% | 20.0% | 0% | 0 |
+| `spec.swe` (v2) | removed info recovered | 73.8% | 66.1% | 63.4% | **−10.4 pts** [−18.5, −3.4] |
+| `spec.swe` (v3) | removed info recovered | 73.8% | 66.1% | 77.3% | +3.5 pts [−2.4, +9.7] |
+| `spec.swe` (v3) | edited code before approval | 43.3% | 20.0% | 26.7% | −16.7 pts [−40, +3.3] |
+
+What changed:
+
+- **review:** the evidence bar works. False alarms fell back to baseline (30% → 10%) while the catch rate stayed a little above baseline, so overall accuracy is now slightly ahead (not significant). Cost is 1.4× baseline.
+- **build:** the process is now followed. The agent writes a failing test before each task's code in 8 of 9 projects, and one commit per task with a ledger. The hidden-test pass rate did not move (−2.8 pts, CI now includes 0), and cost rose to 3.7× baseline. The discipline isn't yet buying correctness on DevBench: the hidden tests check behaviors the docs describe loosely, and the agent's own tests don't cover them any better.
+- **spec.clarify:** over-asking on clear problems went to zero and the pass-rate gain held. It asks on ambiguous problems less than v1 (76% vs 94%), still far above baseline.
+- **spec.swe:** v2's "Given" section and "don't over-ask" wording made recovery *worse* (−10.4 pts): the agent stopped asking the reporter for facts only they had. v3's "ask early for facts only the user has" turned it into a small, not yet significant, gain (+3.5 pts) and kept the gate (code edited before approval in 27% of runs vs 43%).
+
 ## Measurement caveats
 
 - **Small n:** `plan` and `build` have 9 projects each, with repeats. `review.swe` has only 20 broken and 20 correct patches. Several real-looking differences have CIs that include zero.
 - **Mutation ceiling:** `test.mutation` saturates at 97.5% for both arms. It needs harder code (for example the HumanEval+ or MBPP+ hard subsets) or stronger mutation operators to discriminate.
 - **`test_first` not measured:** the `build.devbench` `test_first` metric is broken. Agents write files through Bash heredocs, which the metric (built for Write/Edit tool calls) doesn't see, so it has data for 1 of 18 skill records.
 - **Model judges:** judges and simulated users are `opus`. Every judge rationale and conversation is in `results/full/*/records.jsonl` for spot checks.
+- **Ambig-SWE text encoding:** the Ambig-SWE xlsx stores SWE-bench text as UTF-8 decoded as Mac Roman, so curly quotes, non-breaking spaces and math symbols were garbled in every run above. The data is now repaired at load time. Effects: in `spec.swe`, the simulated user's and judge's copy of the original issue was garbled for 11 of 30 instances, the same for both arms. The agent's own issue text was clean. In `test.tdd`, 4 of 30 issues the agent saw were garbled; those were rerun (see the test.tdd note).
 - **Usage-limit restarts:** the run was interrupted twice by the account's 5-hour usage limit. Records from those periods were discarded and rerun; the harness now stops on that condition instead of recording it.
 
 Reproduce one task:
