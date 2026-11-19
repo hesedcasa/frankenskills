@@ -1,0 +1,3 @@
+{
+  "install": "test -d evals/.venv || uv venv -q evals/.venv && uv pip install -q --python evals/.venv/bin/python -e evals"
+}
