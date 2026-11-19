@@ -14,7 +14,9 @@ from __future__ import annotations
 import re
 
 from ..agent import Conversation, install_skills, prompt_for_arm
-from ..bigcodebench import agent_env as bcb_agent_env, env_for as bcb_env_for, run_tests as bcb_run_tests
+from ..bigcodebench import agent_env as bcb_agent_env
+from ..bigcodebench import env_for as bcb_env_for
+from ..bigcodebench import run_tests as bcb_run_tests
 from ..devbench import agent_env, env_for, run_hidden_tests, setup_workspace
 from ..judge import classify_turn
 from ..workspace import changed_files, fresh_dir, init_repo, n_commits

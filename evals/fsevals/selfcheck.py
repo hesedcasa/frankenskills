@@ -17,9 +17,7 @@ from .humaneval import run_cases, run_check
 from .mutate import mutants
 from .tasks import all_tasks
 from .tasks.test import _test_files, grade_repro, sympy_env
-from .workspace import (apply_patch, changed_files, commit_all, run_pytest, snapshot_repo,
-                        uv_venv)
-
+from .workspace import apply_patch, changed_files, commit_all, snapshot_repo
 
 FAILURES: list[str] = []
 LIMITATIONS: list[str] = []
@@ -119,7 +117,8 @@ def check_review(n: int) -> None:
 
 
 def check_bigcodebench(n: int) -> None:
-    from .bigcodebench import env_for as bcb_env_for, run_tests as bcb_run_tests
+    from .bigcodebench import env_for as bcb_env_for
+    from .bigcodebench import run_tests as bcb_run_tests
 
     task = all_tasks()["build.bigcodebench"]
     insts = task.sample(n, 0)

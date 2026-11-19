@@ -23,8 +23,16 @@ from pathlib import Path
 from ..agent import Conversation, install_skills, prompt_for_arm
 from ..humaneval import run_check
 from ..mutate import mutants
-from ..workspace import (apply_patch, changed_files, fresh_dir, git, init_repo, run_pytest,
-                         snapshot_repo, uv_venv)
+from ..workspace import (
+    apply_patch,
+    changed_files,
+    fresh_dir,
+    git,
+    init_repo,
+    run_pytest,
+    snapshot_repo,
+    uv_venv,
+)
 from . import Task
 
 # sympy 1.1+ test helpers need the legacy `py` library (newer pytest only shims it);
@@ -160,7 +168,7 @@ class TddRepro(Task):
             for f in set(source) - set(in_base):
                 (ws / f).unlink(missing_ok=True)
         run_env = {"PYTHONPATH": str(ws)}
-        g = grade_repro(python, ws, tests, inst["gold_patch"], {"PYTHONPATH": str(ws)})
+        g = grade_repro(python, ws, tests, inst["gold_patch"], run_env)
         return out | g
 
 
@@ -238,10 +246,10 @@ def _touched_tests(ws: Path, tests: list[str]) -> set[str]:
         except SyntaxError:
             continue
 
-        def visit(nodes, prefix):
+        def visit(nodes, prefix, tracked=tracked, changed=changed):
             for node in nodes:
                 if isinstance(node, ast.ClassDef):
-                    visit(node.body, f"{prefix}::{node.name}")
+                    visit(node.body, f"{prefix}::{node.name}", tracked, changed)
                 elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and \
                         node.name.startswith("test"):
                     first = min([d.lineno for d in node.decorator_list] + [node.lineno])

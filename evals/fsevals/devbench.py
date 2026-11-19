@@ -111,7 +111,7 @@ def _populate(inst: dict, ws: Path, grade_dir: Path) -> None:
     src, conf = Path(inst["path"]), inst["config"]
     if grade_dir.exists():
         shutil.rmtree(grade_dir)
-    shutil.copytree(ws, grade_dir, ignore=shutil.ignore_patterns(".git", ".claude", "__pycache__"))
+    shutil.copytree(ws, grade_dir, ignore=shutil.ignore_patterns(".git", ".claude", ".pi", "__pycache__"))
     for key in ("unit_tests", "acceptance_tests"):
         if conf.get(key):
             _copy(src, conf[key], grade_dir)
@@ -151,7 +151,7 @@ def oracle_passing(inst: dict, python: Path) -> dict[str, list[str]]:
             try:
                 passed, code, _ = _pytest_nodes(python, target, grade)
             except Exception as e:  # timeout, launch failure, missing target
-                raise OracleError(f"reference run of {inst['id']} {kind} tests failed: {e}")
+                raise OracleError(f"reference run of {inst['id']} {kind} tests failed: {e}") from e
             # 0 = all passed, 1 = some failed: both are real measurements. Anything else
             # (interrupted, internal/usage error, nothing collected) is not.
             if code not in (0, 1):
