@@ -23,6 +23,19 @@ Each skill also works alone: `test` and `review` are useful on any change, and `
 
 ## Install
 
+Vercel [`skills`](https://skills.sh/) CLI (Claude Code, Cursor, Codex, OpenCode, and other agents):
+
+```bash
+npx skills add hesedcasa/frankenskills
+```
+
+To install specific skills or install globally:
+
+```bash
+npx skills add hesedcasa/frankenskills --skill spec plan
+npx skills add hesedcasa/frankenskills -g
+```
+
 Claude Code (plugin):
 
 ```

@@ -40,7 +40,7 @@ class PatchReview(Task):
         good = [r for r in rows if r["resolved"]]
         bad = [r for r in rows if not r["resolved"]]
         out = []
-        for g, b in zip(good, bad):
+        for g, b in zip(good, bad, strict=False):
             out += [b, g]
         return out[:n]
 

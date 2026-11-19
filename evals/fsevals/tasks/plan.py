@@ -9,7 +9,6 @@ plan.devbench  DevBench (Li et al., 2024): real Python projects, each with a PRD
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from ..agent import Conversation, install_skills, prompt_for_arm
@@ -129,7 +128,7 @@ class DevBenchPlan(Task):
                 "and an implementation plan. For each test, decide whether the plan commits to "
                 "building AND testing the behavior that test checks (by name or by clearly "
                 "equivalent behavior). Infer each test's behavior from its file and name.\n\n"
-                f"HIDDEN TESTS:\n" + "\n".join(shown)
+                "HIDDEN TESTS:\n" + "\n".join(shown)
                 + f"\n\nPLAN:\n<<<\n{plan[:40000]}\n>>>\n\n"
                 'Every test id must appear in exactly one of the two lists. '
                 'Return {"covered": [test ids covered], "not_covered": [test ids]}.',

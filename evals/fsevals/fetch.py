@@ -1,7 +1,8 @@
 """Download the pinned public datasets and normalize them into JSONL files.
 
-Every source is a public GitHub repository pinned to a commit, so results are
-reproducible. Nothing here needs Hugging Face or Docker.
+Sources are public GitHub repositories pinned to a commit and Hugging Face
+datasets loaded via `datasets`. When Hugging Face is unreachable, SWE-bench
+Verified and HumanEval fall back to the pinned GitHub mirrors.
 
     python -m fsevals.fetch            # fetch everything
     python -m fsevals.fetch --only review
@@ -11,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import gzip
 import json
 import re
 import subprocess
@@ -51,6 +51,13 @@ SOURCES = {
         "2f6637a2557da1f7b5f2b583ab7090a077bbeed2",
         ["/all_preds.jsonl"],
     ),
+}
+
+# name -> (repo_id, config, split)
+HF_SOURCES = {
+    "humaneval": ("openai/openai_humaneval", "openai_humaneval", "test"),
+    "swe_verified": ("princeton-nlp/SWE-bench_Verified", "default", "test"),
+    "bigcodebench": ("bigcode/bigcodebench", "default", "v0.1.4"),
 }
 
 HEC_VARIANTS = {
@@ -140,19 +147,49 @@ def _as_list(v) -> list:
         return re.findall(r'"((?:[^"\\]|\\.)*)"', v)
 
 
-def _swe_row(r) -> dict:
+_HF_CACHE: dict[str, list[dict] | None] = {}
+
+
+def _load_hf(name: str, *, required: bool = True) -> list[dict] | None:
+    if name in _HF_CACHE:
+        return _HF_CACHE[name]
+    repo_id, config, split = HF_SOURCES[name]
+    try:
+        from datasets import load_dataset
+
+        ds = load_dataset(repo_id, config, split=split)
+        rows = list(ds)
+        print(f"fetched hf:{repo_id} ({split}, {len(rows)} rows)")
+    except Exception as e:
+        if required:
+            raise
+        print(f"warning: could not load hf:{repo_id} ({e}); using GitHub fallback")
+        rows = None
+    _HF_CACHE[name] = rows
+    return rows
+
+
+def _swe_verified_map() -> dict[str, dict]:
+    rows = _load_hf("swe_verified", required=False)
+    return {r["instance_id"]: r for r in rows} if rows else {}
+
+
+def _swe_row(r, hf_swe: dict[str, dict] | None = None) -> dict:
+    iid = r["instance_id"]
+    clean = (hf_swe or {}).get(iid)
+    src = clean or r
     return {
-        "instance_id": r["instance_id"],
-        "repo": r["repo"],
-        "base_commit": r["base_commit"],
-        "version": str(r["version"]),
-        "original_issue": r["original_issue"],
+        "instance_id": iid,
+        "repo": src["repo"],
+        "base_commit": src["base_commit"],
+        "version": str(src["version"]),
+        "original_issue": clean["problem_statement"] if clean else r["original_issue"],
         "underspecified_issue": r["problem_statement"],
         "missing_information": r["missing_information"],
-        "gold_patch": r["patch"],
-        "test_patch": r["test_patch"],
-        "fail_to_pass": _as_list(r["FAIL_TO_PASS"]),
-        "pass_to_pass": _as_list(r["PASS_TO_PASS"]),
+        "gold_patch": src["patch"],
+        "test_patch": src["test_patch"],
+        "fail_to_pass": _as_list(src["FAIL_TO_PASS"]),
+        "pass_to_pass": _as_list(src["PASS_TO_PASS"]),
     }
 
 
@@ -177,7 +214,8 @@ def build_spec() -> None:
                 })
     _write("spec_clarify", rows)
     df = _ambig_frame()
-    _write("spec_swe", [_swe_row(r) for _, r in df.iterrows() if r["missing_information"]])
+    hf_swe = _swe_verified_map()
+    _write("spec_swe", [_swe_row(r, hf_swe) for _, r in df.iterrows() if r["missing_information"]])
 
 
 def build_devbench() -> None:
@@ -192,10 +230,31 @@ def build_devbench() -> None:
     _write("devbench", rows)
 
 
+def build_bigcodebench() -> None:
+    rows = _load_hf("bigcodebench", required=True)
+    _write("bigcodebench", [{
+        "id": r["task_id"],
+        "instruct_prompt": r["instruct_prompt"],
+        "code_prompt": r["code_prompt"],
+        "complete_prompt": r["complete_prompt"],
+        "canonical_solution": r["canonical_solution"],
+        "test": r["test"],
+        "entry_point": r["entry_point"],
+        "libs": _as_list(r["libs"]),
+    } for r in rows])
+
+
+def build_build() -> None:
+    build_devbench()
+    build_bigcodebench()
+
+
 def build_test() -> None:
-    src = fetch_source("humanevalcomm")
-    raw = (src / "Benchmark/HumanEval.jsonl").read_text()
-    rows = [json.loads(l) for l in raw.splitlines() if l.strip()]
+    rows = _load_hf("humaneval", required=False)
+    if rows is None:
+        src = fetch_source("humanevalcomm")
+        raw = (src / "Benchmark/HumanEval.jsonl").read_text()
+        rows = [json.loads(l) for l in raw.splitlines() if l.strip()]
     _write("test_mutation", [{
         "id": r["task_id"], "prompt": r["prompt"], "canonical_solution": r["canonical_solution"],
         "test": r["test"], "entry_point": r["entry_point"],
@@ -203,7 +262,8 @@ def build_test() -> None:
 
     ids = set(fetch_source("tddbench").joinpath("id_list.txt").read_text().split())
     df = _ambig_frame()
-    _write("test_tdd", [_swe_row(r) for _, r in df.iterrows() if r["instance_id"] in ids])
+    hf_swe = _swe_verified_map()
+    _write("test_tdd", [_swe_row(r, hf_swe) for _, r in df.iterrows() if r["instance_id"] in ids])
 
 
 def build_review() -> None:
@@ -215,13 +275,14 @@ def build_review() -> None:
         p = json.loads(line)
         preds[p["instance_id"]] = p
     df = _ambig_frame()
+    hf_swe = _swe_verified_map()
     rows = []
     for _, r in df.iterrows():
         iid = r["instance_id"]
         p = preds.get(iid)
         if not p or not (p.get("model_patch") or "").strip() or iid not in labels:
             continue
-        row = _swe_row(r)
+        row = _swe_row(r, hf_swe)
         row["candidate_patch"] = p["model_patch"]
         row["candidate_model"] = p.get("model_name_or_path", "")
         row["resolved"] = str(labels[iid]["resolved"]).lower() == "true"
@@ -229,7 +290,7 @@ def build_review() -> None:
     _write("review", rows)
 
 
-BUILDERS = {"spec": build_spec, "plan": build_devbench, "build": build_devbench,
+BUILDERS = {"spec": build_spec, "plan": build_devbench, "build": build_build,
             "test": build_test, "review": build_review}
 
 

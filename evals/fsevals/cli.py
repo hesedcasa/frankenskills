@@ -25,7 +25,7 @@ from .tasks import Ctx, all_tasks
 
 def cmd_list(_args) -> None:
     for name, t in all_tasks().items():
-        print(f"{name:14} [{t.skill}]  {t.description}")
+        print(f"{name:18} [{t.skill}]  {t.description}")
 
 
 def cmd_fetch(args) -> None:

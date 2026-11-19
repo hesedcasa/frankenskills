@@ -10,7 +10,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-from . import REPOS_DIR, CACHE_DIR
+from . import CACHE_DIR, REPOS_DIR
 
 GIT_ENV = {
     "GIT_AUTHOR_NAME": "eval", "GIT_AUTHOR_EMAIL": "eval@example.invalid",

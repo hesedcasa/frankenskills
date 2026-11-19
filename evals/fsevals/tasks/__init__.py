@@ -62,5 +62,6 @@ def all_tasks() -> dict[str, Task]:
     from . import build, plan, review, spec, test
 
     tasks = [spec.Clarify(), spec.SweSpec(), plan.DevBenchPlan(), build.DevBenchBuild(),
-             test.MutationTests(), test.TddRepro(), review.PatchReview()]
+             build.BigCodeBenchBuild(), test.MutationTests(), test.TddRepro(),
+             review.PatchReview()]
     return {t.name: t for t in tasks}
