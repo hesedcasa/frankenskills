@@ -8,7 +8,8 @@ Measured evals for the five skills, built on public research datasets. Each eval
 | `spec.swe` | spec | **Ambig-SWE** — 496 SWE-bench Verified issues with details removed, each annotated with exactly what was removed | `info_recovery` | judge, item by item against the annotation |
 | `plan.devbench` | plan | **DevBench** — 9 real Python projects with PRD, architecture, and hidden tests | `plan_score` = mean of rubric and hidden-test coverage | judge (7-criterion rubric; coverage against hidden test names) |
 | `build.devbench` | build | **DevBench** implementation track | `hidden_pass_rate` | DevBench's hidden unit + acceptance tests (executed) |
-| `test.mutation` | test | **HumanEval** — correct reference solutions | `mutation_score` | executed: suite must pass on real code; share of non-equivalent mutants killed |
+| `build.bigcodebench` | build | **BigCodeBench** (`bigcode/bigcodebench` on Hugging Face) — 1,140 Python tasks with library deps | `pass_rate` | BigCodeBench's hidden `unittest` suite (executed) |
+| `test.mutation` | test | **HumanEval** (`openai/openai_humaneval` on Hugging Face) — correct reference solutions | `mutation_score` | executed: suite must pass on real code; share of non-equivalent mutants killed |
 | `test.tdd` | test | **TDD-Bench Verified** — 449 SWE-bench Verified issues (sympy subset of 67 runs locally) | `fail_to_pass` | executed: agent's test fails on the original code and passes with the upstream fix |
 | `review.swe` | review | **SWE-bench Verified** + 441 real agent patches from a public leaderboard submission, each labeled resolved/unresolved by the official harness (359/82) | `correct` verdict | label from the official harness; judge checks defect localization |
 
@@ -54,6 +55,8 @@ Each run writes `config.json`, `records.jsonl` (one line per instance × arm × 
 
 **`build.devbench`.** The agent gets PRD, UML, and architecture docs plus a virtualenv with the declared dependencies, and implements the project. If it stops to ask for approval, the user replies "approved, go ahead" (at most 4 rounds). Then DevBench's hidden unit and acceptance tests run against its code. Process metrics: `test_first` (first test file written before first source file), `agent_test_files`, `commits`.
 
+**`build.bigcodebench`.** The agent gets a BigCodeBench `instruct_prompt` (treated as the approved spec) and an active virtualenv with the task's required PyPI libraries and `pytest`, and implements `solution.py`. Graded by executing BigCodeBench's hidden `unittest` suite (`pass_rate`, `all_pass`), plus `test_first`, `agent_test_files`, and `commits`.
+
 **`test.mutation`.** The agent writes `test_solution.py` for a correct HumanEval solution. The suite must pass on that solution (`suite_valid`). Then up to 15 AST mutants are generated (flipped comparisons, swapped operators, off-by-one constants, dropped `not`, `return None`, `and`↔`or`). Only mutants that HumanEval's own `check()` rejects are kept, so equivalent mutants never count against the suite. `mutation_score` is the share killed.
 
 **`test.tdd`.** The agent gets the repository at the issue's base commit and the issue text, and must write a reproducing test without fixing the bug. Grading follows TDD-Bench: any source edits are reverted, the agent's test files are run (they must fail), the upstream fix is applied, and they run again (they must pass).
@@ -68,17 +71,19 @@ Check `skills_invoked` in the records. In the `skill` arm it should contain the 
 
 ## Datasets and pins
 
-All sources are public GitHub repositories pinned to a commit in `fsevals/fetch.py`. Hugging Face is not required (and is unreachable in some sandboxes): SWE-bench Verified fields come from the Ambig-SWE release, which ships all 500 instances.
+Sources are public GitHub repositories pinned to a commit and Hugging Face datasets in `fsevals/fetch.py`. When Hugging Face is unreachable, `SWE-bench Verified` and `HumanEval` fall back to the pinned GitHub mirrors.
 
-| Source | Repo @ commit | License | Paper |
+| Source | Repo @ commit / HF dataset | License | Paper |
 |---|---|---|---|
+| BigCodeBench | HF `bigcode/bigcodebench` (`v0.1.4`) | Apache-2.0 | Zhuo et al., *BigCodeBench*, ICLR 2025 ([arXiv 2406.15877](https://arxiv.org/abs/2406.15877)) |
+| HumanEval | HF `openai/openai_humaneval` (`test`) | MIT | Chen et al., 2021 |
+| SWE-bench Verified | HF `princeton-nlp/SWE-bench_Verified` (`test`) | MIT | Jimenez et al., *SWE-bench*, ICLR 2024 |
 | HumanEvalComm | `jie-jw-wu/human-eval-comm` @ `794a91f` | see repo | Wu & Fard, *Benchmarking the Communication Competence of Code Generation for LLMs and LLM Agents*, TOSEM 2025 ([arXiv 2406.00215](https://arxiv.org/abs/2406.00215)) |
 | Ambig-SWE | `sani903/InteractiveSWEAgents` @ `00421fe` | MIT (OpenHands fork) | Vijayvargiya et al., *Interactive Agents to Overcome Underspecificity in Software Engineering*, ICLR 2026 ([arXiv 2502.13069](https://arxiv.org/abs/2502.13069)) |
 | DevBench | `open-compass/DevBench` @ `bb593c1` | Apache-2.0 | Li et al., *DevBench: A Comprehensive Benchmark for Software Development*, 2024 ([arXiv 2403.08604](https://arxiv.org/abs/2403.08604)) |
 | TDD-Bench Verified | `IBM/TDD-Bench-Verified` @ `3df8be0` | Apache-2.0 | Ahmed et al., *TDD-Bench Verified*, 2024 ([arXiv 2412.02883](https://arxiv.org/abs/2412.02883)) |
 | SWE-bench Verified labels | `SWE-bench/experiments` @ `40f164d` | see repo | Jimenez et al., *SWE-bench*, ICLR 2024 |
 | Candidate patches | `john-b-yang/20260901_mini-v2.4.2_gemini-3-5-flash` @ `2f6637a` | see repo | mini-SWE-agent leaderboard submission |
-| HumanEval | via HumanEvalComm repo | MIT | Chen et al., 2021 |
 
 The datasets are downloaded into `evals/.cache/`, which is git-ignored. They are not redistributed here.
 

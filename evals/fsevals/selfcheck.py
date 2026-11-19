@@ -118,6 +118,30 @@ def check_review(n: int) -> None:
                 FAILURES.append(f"review.swe {inst['instance_id']}: candidate patch does not apply")
 
 
+def check_bigcodebench(n: int) -> None:
+    from .bigcodebench import env_for as bcb_env_for, run_tests as bcb_run_tests
+
+    task = all_tasks()["build.bigcodebench"]
+    insts = task.sample(n, 0)
+    ok = 0
+    for inst in insts:
+        try:
+            py = bcb_env_for(inst)
+            src = inst["code_prompt"] + inst["canonical_solution"]
+            res = bcb_run_tests(src, inst["test"], python=py)
+        except Exception as e:
+            print(f"build.bigcodebench {inst['id']}: ENV FAILED {str(e)[:200]}")
+            FAILURES.append(f"build.bigcodebench {inst['id']}: environment failed")
+            continue
+        passed = bool(res["all_pass"])
+        ok += passed
+        print(f"build.bigcodebench {inst['id']}: canonical solution scores "
+              f"{res['passed']}/{res['total']}")
+        if not passed:
+            FAILURES.append(f"build.bigcodebench {inst['id']}: canonical fails ({res['output'][:200]})")
+    print(f"build.bigcodebench grader: {ok}/{len(insts)} canonical solutions pass all tests")
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     def positive(v: str) -> int:
@@ -126,10 +150,11 @@ def main(argv=None) -> None:
         return int(v)
 
     ap.add_argument("--n", type=positive, default=3)
-    ap.add_argument("--only", choices=["humaneval", "devbench", "tdd", "review"], action="append")
+    ap.add_argument("--only", choices=["humaneval", "devbench", "bigcodebench", "tdd", "review"],
+                    action="append")
     args = ap.parse_args(argv)
-    checks = {"humaneval": check_humaneval, "devbench": check_devbench, "tdd": check_tdd,
-              "review": check_review}
+    checks = {"humaneval": check_humaneval, "devbench": check_devbench,
+              "bigcodebench": check_bigcodebench, "tdd": check_tdd, "review": check_review}
     for name in args.only or checks:
         checks[name](args.n)
     if LIMITATIONS:

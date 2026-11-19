@@ -3,7 +3,7 @@ name = "fsevals"
 version = "0.1.0"
 description = "Evals for the frankenskills spec/plan/build/test/review skills"
 requires-python = ">=3.10"
-dependencies = ["pandas>=2.0", "openpyxl>=3.1", "pyyaml>=6.0"]
+dependencies = ["pandas>=2.0", "openpyxl>=3.1", "pyyaml>=6.0", "datasets>=2.18"]
 
 [project.scripts]
 fsevals = "fsevals.cli:main"
